@@ -278,7 +278,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             )
             result = model.fit(**kwargs)
             spline.coeffs = result.params
-            insignificant = result.tvalues < 1.96
+            insignificant = np.abs(result.tvalues) < 1.96
             if prune and np.any(insignificant):
                 add_constant = add_constant and not insignificant[0]
                 spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
@@ -311,7 +311,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             kwargs.setdefault("q", 0.5)
             result = model.fit(**kwargs)
             spline.coeffs = result.params
-            insignificant = result.tvalues < 1.96
+            insignificant = np.abs(result.tvalues) < 1.96
             if prune and np.any(insignificant):
                 add_constant = add_constant and not insignificant[0]
                 spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
