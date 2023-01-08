@@ -4,16 +4,33 @@ This module includes two spline implementations suitable for regression: linear 
 
 ```python
 import numpy as np
+import matplotlib.pyplot as plt
 from regspline import LinearSpline
+plt.close('all')
+
 knots = [0,1,2]
 coeffs = [1,2,3]
 s = LinearSpline(knots, coeffs)
 y=s(np.linspace(0,1))
 
-otherspline=LinearSpline.from_data(np.linspace(0,1), np.sin(np.linspace(0,1)), method='OLS')
+x=np.linspace(0,np.pi)
+y=np.sin(x)
+xobs = np.repeat(x,50)
+yobs = np.repeat(y,50) + 0.01*np.random.randn(*xobs.shape)
+
+s, res = LinearSpline.from_data(xobs, yobs,
+                                knots=np.linspace(0,np.pi,30),
+                                method='OLS',
+                                return_estim_result=True,
+                                prune=True)
+
+plt.plot(x,y)
+plt.plot(x,s(x))
 ```
 
 Several regression types are supported to extract the spline from data, including OLS, LASSO, and quantile regression.
+
+See the example files for more.
 
 ## Installation
 
