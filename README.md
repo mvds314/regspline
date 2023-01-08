@@ -1,6 +1,6 @@
 # Regression splines
 
-This module includes two spline implementations suitable for regression: linear splines using a hinge function basis, and natural cubic splines.
+This module includes two spline implementations splines suitable for regression: linear splines using a hinge function basis, and natural cubic splines.
 
 ```python
 import numpy as np
@@ -28,9 +28,7 @@ plt.plot(x,y)
 plt.plot(x,s(x))
 ```
 
-Several regression types are supported to extract the spline from data, including OLS, LASSO, and quantile regression.
-
-See the example files for more.
+Several regression types are supported to extract the splines from data, including OLS, LASSO, and quantile regression. See the example files.
 
 ## Installation
 
@@ -44,10 +42,10 @@ pip install git+https://github.com/mvds314/regspline.git
 
 The module contains two splines:
 
-* A linear spline represented by Hinge functions: $h_i(x)$ = max(x-k_i,0)`, where $k_i$ are the knots.
+* A linear spline represented by Hinge functions: $h_i(x) = \max(x-k_i,0)$, where $k_i$ are the knots.
 * A natural cubic spline.
 
-All splines can be written in terms of a linear combination of basis functions. Many splines representations don't have a one-to-one relation with the knots. For exmaple, linear B-splines, have basis spiked basis functions: they zero up to  $k_{i-1}$, increase linearly up to $k_i$, and then decrease linearly back to zero up to $k_{i+1}$. This makes it hard to prune knots in regression, as removing one knots, changes several basis functions at the same time.
+All splines can be written in terms of a linear combination of basis functions. Many splines representations don't have a one-to-one relation with the knots. For example, linear B-splines, have basis spiked basis functions: they zero up to  $k_{i-1}$, increase linearly up to $k_i$, and then decrease linearly back to zero up to $k_{i+1}$. This makes it hard to prune knots in regression, as removing one knots, changes several basis functions at the same time.
 
 The splines chosen:
 
@@ -65,7 +63,7 @@ Some projects with related methods:
 * [py-earth](https://github.com/scikit-learn-contrib/py-earth)
 * Quantile regression using decision trees [scikit-garden](https://scikit-garden.github.io/)
 
-The module differs from in these implementations as it directly implements the splines as functions, i.e., you can use them directly if you specify knots and coefficients, and they are not directly integrated with an estimation framework.
+The module differs from these implementations as it directly implements the splines as functions, i.e., you can use them directly if you specify knots and coefficients, and they are not directly integrated with an estimation framework.
 
 ## Development
 
