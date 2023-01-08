@@ -61,7 +61,7 @@ Some projects with related methods:
 * [py-earth](https://github.com/scikit-learn-contrib/py-earth)
 * Quantile regression using decision trees [scikit-garden](https://scikit-garden.github.io/)
 
-The module differs from these implementations as it directly implements the splines as functions, i.e., you can use them directly if you specify knots and coefficients, and they are not directly integrated with an estimation framework.
+The module differs from these implementations as it implements the splines as functions, and they are not integrated within an estimation framework.
 
 ## Development
 
