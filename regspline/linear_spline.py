@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from .bases import BasisFuncInterface, RegressionSplineBase
+from .base import BasisFuncInterface, RegressionSplineBase
 
 
 class HingeBasisFunction(BasisFuncInterface):

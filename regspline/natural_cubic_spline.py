@@ -4,7 +4,7 @@
 import numpy as np
 
 from abc import ABC
-from .bases import BasisFuncInterface, KnotsInterface, RegressionSplineBase
+from .base import BasisFuncInterface, KnotsInterface, RegressionSplineBase
 
 
 class _NaturalCubicSplineBasisFuncInterface(KnotsInterface, BasisFuncInterface, ABC):
