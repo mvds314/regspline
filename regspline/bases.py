@@ -268,7 +268,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
         y = np.asanyarray(y)
         if knots is None:
             knots = np.linspace(np.min(x), np.max(x), num=10)
-        elif np.issubdtype(knots, np.integer):
+        elif isinstance(knots, int):
             knots = np.linspace(np.min(x), np.max(x), num=knots)
         else:
             knots=np.asanyarray(knots)
