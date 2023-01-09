@@ -268,6 +268,10 @@ class RegressionSplineBase(KnotsInterface, ABC):
         y = np.asanyarray(y)
         if knots is None:
             knots = np.linspace(np.min(x), np.max(x), num=10)
+        elif np.issubdtype(knots, np.integer):
+            knots = np.linspace(np.min(x), np.max(x), num=knots)
+        else:
+            knots=np.asanyarray(knots)
         spline = cls(knots, None)
         # Estimate
         if method == "OLS":
