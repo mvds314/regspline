@@ -19,14 +19,14 @@ with Timer("Initializing data"):
     knots = [0, 0.5, 1]
     coeffs = [0, 1, 1]
     spline = LinearSpline(knots, coeffs)
-    signal = lambda x:  spline(x)
-    noise = lambda x: x**2+0.1
+    signal = lambda x: spline(x)
+    noise = lambda x: x ** 2 + 0.1
     x = np.linspace(0, 1, 500)
     y = signal(x)
     xx = np.repeat(x, 10)
     yy = signal(xx) + noise(xx) * np.random.randn(*xx.shape)
     quantiles = [0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
-    n_knots=5
+    n_knots = 5
 
 
 # Get quantiles by fitting a linear spline
@@ -56,7 +56,12 @@ with Timer("Running linear spline quantile regression with statsmodels"):
     smlsq = {}
     for q in quantiles:
         smlsq[q] = LinearSpline.from_data(
-            xx, yy, knots=np.linspace(0, 1, n_knots), q=q, method="QuantileRegression", max_iter=int(1e8)
+            xx,
+            yy,
+            knots=np.linspace(0, 1, n_knots),
+            q=q,
+            method="QuantileRegression",
+            max_iter=int(1e8),
         )
         print(".", end="")
 
@@ -65,7 +70,12 @@ with Timer("Running natural cubic spline quantile regression with statsmodels"):
     smcsq = {}
     for q in quantiles:
         smcsq[q] = NaturalCubicSpline.from_data(
-            xx, yy, knots=np.linspace(0, 1, n_knots), q=q, method="QuantileRegression", max_iter=int(1e8)
+            xx,
+            yy,
+            knots=np.linspace(0, 1, n_knots),
+            q=q,
+            method="QuantileRegression",
+            max_iter=int(1e8),
         )
         print(".", end="")
 

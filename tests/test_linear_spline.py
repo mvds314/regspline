@@ -146,7 +146,12 @@ def test_from_data():
     assert np.allclose(fs.coeffs, spline.coeffs, atol=2e-2)
     # Test Quantile estimation
     fs = LinearSpline.from_data(
-        x, y, method="QuantileRegression", q=0.5, knots=[0.1, 0.3, 0.5, 0.8, 0.9], prune=True
+        x,
+        y,
+        method="QuantileRegression",
+        q=0.5,
+        knots=[0.1, 0.3, 0.5, 0.8, 0.9],
+        prune=True,
     )
     fs.prune_knots(tol=1e-2)
     assert np.allclose(fs.knots, spline.knots)

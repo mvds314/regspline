@@ -271,7 +271,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
         elif isinstance(knots, int):
             knots = np.linspace(np.min(x), np.max(x), num=knots)
         else:
-            knots=np.asanyarray(knots)
+            knots = np.asanyarray(knots)
         spline = cls(knots, None)
         # Estimate
         if method == "OLS":
