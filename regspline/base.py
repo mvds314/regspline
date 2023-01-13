@@ -275,11 +275,10 @@ class RegressionSplineBase(KnotsInterface, ABC):
         spline = cls(knots, None)
         # Estimate
         if method == "OLS":
-            model = sm.OLS(
-                y,
-                exog=spline.eval_basis(x, include_constant=add_constant),
-                hasconst=True,
-            )
+            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
+                          hasconst=True,
+                          missing = kwargs.pop('missing', 'none'))
+            model = sm.OLS(y,**smkwargs)
             result = model.fit(**kwargs)
             spline.coeffs = result.params
             insignificant = np.abs(result.tvalues) < 1.96
@@ -297,21 +296,19 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     **kwargs,
                 )
         elif method == "LASSO":
-            model = sm.OLS(
-                y,
-                exog=spline.eval_basis(x, include_constant=add_constant),
-                hasconst=True,
-            )
+            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
+                          hasconst=True,
+                          missing = kwargs.pop('missing', 'none'))
+            model = sm.OLS(y,**smkwargs)
             result = model.fit_regularized(method="sqrt_lasso", **kwargs)
             spline.coeffs = result.params
             if prune:
                 spline.prune_knots()
         elif method == "QuantileRegression":
-            model = sm.QuantReg(
-                y,
-                exog=spline.eval_basis(x, include_constant=add_constant),
-                hasconst=True,
-            )
+            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
+                          hasconst=True,
+                          missing = kwargs.pop('missing', 'none'))
+            model = sm.QuantReg(y,**smkwargs)
             kwargs.setdefault("q", 0.5)
             result = model.fit(**kwargs)
             spline.coeffs = result.params
