@@ -5,7 +5,24 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from abc import ABC, abstractmethod
-from sklearn.svm import LinearSVR, NuSVR
+
+try:
+    from sklearn.svm import LinearSVR, NuSVR
+except ImportError:
+    _has_sklearn = False
+else:
+    _has_sklearn = True
+    
+try:
+    import cvxopt
+    if cvxopt.__version__=='1.3.0':
+        raise ImportError('SVR doesn not work well with cvxopt 1.3.0')
+        # Note there is a domain error bug in 1.3.0: https://github.com/cvxopt/cvxopt/issues/202
+except ImportError:
+    _has_cvxopt = False
+else:
+    _has_cvxopt = True
+
 from .util import type_wrapper, PandasWrapper
 
 
@@ -296,6 +313,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     **kwargs,
                 )
         elif method == "LASSO":
+            assert _has_cvxopt, "Mising optional dependency cvxopt"
             smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
                           hasconst=True,
                           missing = kwargs.pop('missing', 'none'))
@@ -327,6 +345,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     **kwargs,
                 )
         elif method == "SVR":
+            assert _has_sklearn, "Mising optional dependency scikit learn"
             kwargs.setdefault("random_state", 0)
             kwargs.setdefault("tol", 1e-5)
             kwargs.setdefault("loss", "epsilon_insensitive")
@@ -342,6 +361,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             if prune:
                 spline.prune_knots()
         elif method == "NuSVR":
+            assert _has_sklearn, "Mising optional dependency scikit learn"
             assert add_constant, "A constant is always fitted for NuSVR"
             kwargs.setdefault("tol", 1e-5)
             kwargs.setdefault("nu", 0.5)

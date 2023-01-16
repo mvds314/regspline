@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 
 import pytest
+import warnings
 from pathlib import Path
 
 from regspline.natural_cubic_spline import di
 from regspline import NaturalCubicSpline, NaturalCubicSplineBasisFunction
-
+from regspline.base import _has_cvxopt
 
 def test_di():
     knots = [0.1, 0.5, 0.9]
@@ -145,13 +146,16 @@ def test_from_data():
     other_knots = [i + 1 for i, k in enumerate(fs.knots[:-1]) if k not in spline.knots]
     assert np.allclose(fs.coeffs[overlapping_knots], spline.coeffs, atol=1e-2)
     assert np.allclose(fs.coeffs[other_knots], 0, atol=1e-2)
-    # Test LASSO estimation
-    fs = NaturalCubicSpline.from_data(
-        x, y, method="LASSO", knots=[0.1, 0.3, 0.5, 0.8, 0.9], prune=True, alpha=10
-    )
-    fs.prune_knots(tol=1e-2)
-    assert np.allclose(fs.knots, spline.knots)
-    assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    if _has_cvxopt:
+        # Test LASSO estimation
+        fs = NaturalCubicSpline.from_data(
+            x, y, method="LASSO", knots=[0.1, 0.3, 0.5, 0.8, 0.9], prune=True, alpha=10
+        )
+        fs.prune_knots(tol=1e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    else:
+        warnings.warn("Optional dependency cvxopt not found, cannot test LASSO")
     # Test Quantile estimation
     fs = NaturalCubicSpline.from_data(
         x,

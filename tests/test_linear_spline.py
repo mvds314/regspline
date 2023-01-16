@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 
 import pytest
+import warnings
 from pathlib import Path
 
 from regspline import LinearSpline, HingeBasisFunction
+from regspline.base import _has_sklearn, _has_cvxopt
 
 
 def test_basis():
@@ -129,21 +131,27 @@ def test_from_data():
     fs = LinearSpline.from_data(x, y, knots=knots, prune=True)
     assert np.allclose(fs.knots, spline.knots)
     assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
-    # Test LASSO estimation
-    fs = LinearSpline.from_data(x, y, method="LASSO", knots=knots, prune=True, alpha=1)
-    fs.prune_knots(tol=1e-2)
-    assert np.allclose(fs.knots, spline.knots)
-    assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
-    # Test SVR estimation
-    fs = LinearSpline.from_data(x, y, method="SVR", knots=knots)
-    fs.prune_knots(tol=5e-2)
-    assert np.allclose(fs.knots, spline.knots)
-    assert np.allclose(fs.coeffs, spline.coeffs, atol=2e-2)
-    # Test NuSVR estimation
-    fs = LinearSpline.from_data(x, y, method="NuSVR", knots=knots)
-    fs.prune_knots(tol=5e-2)
-    assert np.allclose(fs.knots, spline.knots)
-    assert np.allclose(fs.coeffs, spline.coeffs, atol=2e-2)
+    if _has_cvxopt:
+        # Test LASSO estimation
+        fs = LinearSpline.from_data(x, y, method="LASSO", knots=knots, prune=True, alpha=1)
+        fs.prune_knots(tol=1e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    else:
+        warnings.warn("Optional dependency cvxopt not found, cannot test LASSO")
+    if _has_sklearn:
+        # Test SVR estimation
+        fs = LinearSpline.from_data(x, y, method="SVR", knots=knots)
+        fs.prune_knots(tol=5e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=2e-2)
+        # Test NuSVR estimation
+        fs = LinearSpline.from_data(x, y, method="NuSVR", knots=knots)
+        fs.prune_knots(tol=5e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=2e-2)
+    else:
+        warnings.warn("Optional dependency scikit learn not found, cannot test SVR")
     # Test Quantile estimation
     fs = LinearSpline.from_data(
         x,
