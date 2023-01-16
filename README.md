@@ -38,6 +38,8 @@ You can install this library directly from github:
 pip install git+https://github.com/mvds314/regspline.git
 ```
 
+There are two optional dependencies: `scikit-learn`, and `cvxopt`. They are only required to estimate splines on data with, respectively, support vector regressions, and LASSO.
+
 ## Background
 
 The module contains two splines:
@@ -79,4 +81,6 @@ pip install -e .
 to install the package in edit mode.
 
 Run unittests with `pytest`.
+
+Install the optional dependencies to test all functionality.
 
