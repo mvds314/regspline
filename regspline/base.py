@@ -8,15 +8,17 @@ from abc import ABC, abstractmethod
 
 try:
     from sklearn.svm import LinearSVR, NuSVR
+    from sklearn.linear_model import QuantileRegressor
 except ImportError:
     _has_sklearn = False
 else:
     _has_sklearn = True
-    
+
 try:
     import cvxopt
-    if cvxopt.__version__=='1.3.0':
-        raise ImportError('SVR doesn not work well with cvxopt 1.3.0')
+
+    if cvxopt.__version__ == "1.3.0":
+        raise ImportError("SVR doesn not work well with cvxopt 1.3.0")
         # Note there is a domain error bug in 1.3.0: https://github.com/cvxopt/cvxopt/issues/202
 except ImportError:
     _has_cvxopt = False
@@ -241,6 +243,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
         add_constant=True,
         prune=False,
         return_estim_result=False,
+        backend=None,
         **kwargs,
     ):
         """
@@ -262,6 +265,8 @@ class RegressionSplineBase(KnotsInterface, ABC):
             Prunes insignificant knots after estimation, and estimates again. The default is False.
         return_estim_result : boolean, optional
             If True, estimation results are returned. The default is False.
+        backend : None or string
+            Force a certain backend, can be statsmodels or sklearn. Defaults to using statsmodels where possible.
 
         Notable kwargs
         ------
@@ -292,10 +297,15 @@ class RegressionSplineBase(KnotsInterface, ABC):
         spline = cls(knots, None)
         # Estimate
         if method == "OLS":
-            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
-                          hasconst=True,
-                          missing = kwargs.pop('missing', 'none'))
-            model = sm.OLS(y,**smkwargs)
+            assert (
+                backend is None or backend == "statsmodels"
+            ), "sklearn backend not implemented"
+            smkwargs = dict(
+                exog=spline.eval_basis(x, include_constant=add_constant),
+                hasconst=True,
+                missing=kwargs.pop("missing", "none"),
+            )
+            model = sm.OLS(y, **smkwargs)
             result = model.fit(**kwargs)
             spline.coeffs = result.params
             insignificant = np.abs(result.tvalues) < 1.96
@@ -313,38 +323,65 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     **kwargs,
                 )
         elif method == "LASSO":
+            assert (
+                backend is None or backend == "statsmodels"
+            ), "sklearn backend not implemented"
             assert _has_cvxopt, "Mising optional dependency cvxopt"
-            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
-                          hasconst=True,
-                          missing = kwargs.pop('missing', 'none'))
-            model = sm.OLS(y,**smkwargs)
+            smkwargs = dict(
+                exog=spline.eval_basis(x, include_constant=add_constant),
+                hasconst=True,
+                missing=kwargs.pop("missing", "none"),
+            )
+            model = sm.OLS(y, **smkwargs)
             result = model.fit_regularized(method="sqrt_lasso", **kwargs)
             spline.coeffs = result.params
             if prune:
                 spline.prune_knots()
         elif method == "QuantileRegression":
-            smkwargs=dict(exog=spline.eval_basis(x, include_constant=add_constant),
-                          hasconst=True,
-                          missing = kwargs.pop('missing', 'none'))
-            model = sm.QuantReg(y,**smkwargs)
-            kwargs.setdefault("q", 0.5)
-            result = model.fit(**kwargs)
-            spline.coeffs = result.params
-            insignificant = np.abs(result.tvalues) < 1.96
-            if prune and np.any(insignificant):
-                add_constant = add_constant and not insignificant[0]
-                spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-                return cls.from_data(
-                    x,
-                    y,
-                    knots=spline.knots,
-                    method=method,
-                    add_constant=add_constant,
-                    prune=False,
-                    return_estim_result=return_estim_result,
-                    **kwargs,
+            if backend is None or backend == "statsmodels":
+                smkwargs = dict(
+                    exog=spline.eval_basis(x, include_constant=add_constant),
+                    hasconst=True,
+                    missing=kwargs.pop("missing", "none"),
                 )
+                model = sm.QuantReg(y, **smkwargs)
+                kwargs.setdefault("q", 0.5)
+                result = model.fit(**kwargs)
+                spline.coeffs = result.params
+                insignificant = np.abs(result.tvalues) < 1.96
+                if prune and np.any(insignificant):
+                    add_constant = add_constant and not insignificant[0]
+                    spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
+                    return cls.from_data(
+                        x,
+                        y,
+                        knots=spline.knots,
+                        method=method,
+                        add_constant=add_constant,
+                        prune=False,
+                        return_estim_result=return_estim_result,
+                        **kwargs,
+                    )
+            elif backend == "sklearn":
+                assert _has_sklearn, "Mising optional dependency scikit learn"
+                kwargs.setdefault("fit_intercept", add_constant)
+                kwargs.setdefault("solver", "highs")
+                kwargs.setdefault("quantile", kwargs.pop("q", 0.5))
+                kwargs.setdefault("alpha", 0)
+                model = QuantileRegressor(**kwargs)
+                result = model.fit(spline.eval_basis(x, include_constant=False), y)
+                spline.coeffs = np.append(result.intercept_, result.coef_)
+                assert np.allclose(
+                    spline(x), result.predict(spline.eval_basis(x))
+                ), "Something is wrong, this should give the same result"
+                if prune:
+                    spline.prune_knots()
+            else:
+                raise ValueError("Invalid backend")
         elif method == "SVR":
+            assert (
+                backend is None or backend == "sklearn"
+            ), "statsmodels backend not implemented"
             assert _has_sklearn, "Mising optional dependency scikit learn"
             kwargs.setdefault("random_state", 0)
             kwargs.setdefault("tol", 1e-5)
@@ -361,6 +398,9 @@ class RegressionSplineBase(KnotsInterface, ABC):
             if prune:
                 spline.prune_knots()
         elif method == "NuSVR":
+            assert (
+                backend is None or backend == "sklearn"
+            ), "statsmodels backend not implemented"
             assert _has_sklearn, "Mising optional dependency scikit learn"
             assert add_constant, "A constant is always fitted for NuSVR"
             kwargs.setdefault("tol", 1e-5)
