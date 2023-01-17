@@ -294,7 +294,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             knots = np.linspace(np.min(x), np.max(x), num=knots)
         else:
             knots = np.asanyarray(knots)
-        spline = cls(knots, None)
+        spline = cls(knots, None, extrapolation_method=kwargs.pop('extrapolation_method', 'nan'))
         # Estimate
         if method == "OLS":
             assert (
