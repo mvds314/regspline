@@ -20,7 +20,7 @@ with Timer("Initializing data"):
     coeffs = [0, 1, 1]
     spline = LinearSpline(knots, coeffs)
     signal = lambda x: spline(x)
-    noise = lambda x: x ** 2 + 0.1
+    noise = lambda x: x**2 + 0.1
     x = np.linspace(0, 1, 500)
     y = signal(x)
     xx = np.repeat(x, 10)

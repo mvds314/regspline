@@ -133,7 +133,9 @@ def test_from_data():
     assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
     if _has_cvxopt:
         # Test LASSO estimation
-        fs = LinearSpline.from_data(x, y, method="LASSO", knots=knots, prune=True, alpha=1)
+        fs = LinearSpline.from_data(
+            x, y, method="LASSO", knots=knots, prune=True, alpha=1
+        )
         fs.prune_knots(tol=1e-2)
         assert np.allclose(fs.knots, spline.knots)
         assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)

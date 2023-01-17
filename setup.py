@@ -14,7 +14,6 @@ setup(
         "pandas",
         "statsmodels",
     ],
-    extras_require = {"SVR": ["scikit-learn"],
-                      "LASSO": ["cvxopt!=1.3.0"]}
+    extras_require={"SVR": ["scikit-learn"], "LASSO": ["cvxopt!=1.3.0"]}
     # Note there is a domain error bug in 1.3.0: https://github.com/cvxopt/cvxopt/issues/202
 )

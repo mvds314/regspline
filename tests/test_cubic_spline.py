@@ -12,6 +12,7 @@ from regspline.natural_cubic_spline import di
 from regspline import NaturalCubicSpline, NaturalCubicSplineBasisFunction
 from regspline.base import _has_cvxopt
 
+
 def test_di():
     knots = [0.1, 0.5, 0.9]
     f = di(2, knots)
