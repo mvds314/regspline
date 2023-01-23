@@ -74,9 +74,7 @@ class KnotsInterface(ABC):
         if value is not None:
             value = np.asanyarray(value)
             assert len(value) >= 2, "Must specify at least 2 knots"
-            assert np.all(
-                value[:-1] < value[1:]
-            ), "Knots are assumed to be sorted and unique"
+            assert np.all(value[:-1] < value[1:]), "Knots are assumed to be sorted and unique"
         self._knots = value
 
     @property
@@ -113,6 +111,15 @@ class RegressionSplineBase(KnotsInterface, ABC):
         super().__init__(knots)
         self.coeffs = coeffs
         self.extrapolation_method = extrapolation_method
+
+    def __hash__(self):
+        return hash(
+            (
+                self.__class__.__name__,
+                tuple(self.knots),
+                tuple(self.coeffs),
+            )
+        )
 
     @property
     def extrapolation_method(self):
@@ -176,9 +183,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
     @const.setter
     def const(self, value):
         assert self.knots is not None, "Cannot set constant if knots are not specified"
-        assert (
-            self.coeffs is not None
-        ), "Cannot set constant if coeffs are not specified"
+        assert self.coeffs is not None, "Cannot set constant if coeffs are not specified"
         assert np.isscalar(value) and np.isreal(value)
         if self.has_const:
             self.coeffs[0] = value
@@ -294,12 +299,10 @@ class RegressionSplineBase(KnotsInterface, ABC):
             knots = np.linspace(np.min(x), np.max(x), num=knots)
         else:
             knots = np.asanyarray(knots)
-        spline = cls(knots, None, extrapolation_method=kwargs.pop('extrapolation_method', 'nan'))
+        spline = cls(knots, None, extrapolation_method=kwargs.pop("extrapolation_method", "nan"))
         # Estimate
         if method == "OLS":
-            assert (
-                backend is None or backend == "statsmodels"
-            ), "sklearn backend not implemented"
+            assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
             smkwargs = dict(
                 exog=spline.eval_basis(x, include_constant=add_constant),
                 hasconst=True,
@@ -323,9 +326,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     **kwargs,
                 )
         elif method == "LASSO":
-            assert (
-                backend is None or backend == "statsmodels"
-            ), "sklearn backend not implemented"
+            assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
             assert _has_cvxopt, "Mising optional dependency cvxopt"
             smkwargs = dict(
                 exog=spline.eval_basis(x, include_constant=add_constant),
@@ -379,9 +380,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             else:
                 raise ValueError("Invalid backend")
         elif method == "SVR":
-            assert (
-                backend is None or backend == "sklearn"
-            ), "statsmodels backend not implemented"
+            assert backend is None or backend == "sklearn", "statsmodels backend not implemented"
             assert _has_sklearn, "Mising optional dependency scikit learn"
             kwargs.setdefault("random_state", 0)
             kwargs.setdefault("tol", 1e-5)
@@ -398,9 +397,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             if prune:
                 spline.prune_knots()
         elif method == "NuSVR":
-            assert (
-                backend is None or backend == "sklearn"
-            ), "statsmodels backend not implemented"
+            assert backend is None or backend == "sklearn", "statsmodels backend not implemented"
             assert _has_sklearn, "Mising optional dependency scikit learn"
             assert add_constant, "A constant is always fitted for NuSVR"
             kwargs.setdefault("tol", 1e-5)
