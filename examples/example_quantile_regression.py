@@ -33,10 +33,14 @@ with Timer("Initializing data"):
 with Timer("Running linear spline quantile regression with sklearn"):
     skllsq = {}
     for q in quantiles:
-        skllsq[q] = LinearSpline(np.linspace(0, 1, n_knots), None)
-        model = QuantileRegressor(quantile=q, alpha=0, solver="highs")
-        res = model.fit(skllsq[q].eval_basis(xx), yy)
-        skllsq[q].coeffs = np.append(res.intercept_, res.coef_)
+        skllsq[q] = LinearSpline.from_data(
+            xx,
+            yy,
+            knots=np.linspace(0, 1, n_knots),
+            q=q,
+            method="QuantileRegression",
+            backend="sklearn",
+        )
         print(".", end="")
 
 # Get B-spline quantiles
@@ -79,6 +83,33 @@ with Timer("Running natural cubic spline quantile regression with statsmodels"):
         )
         print(".", end="")
 
+with Timer("Running linear spline quantile regression with quantreg"):
+    qregls = {}
+    for q in quantiles:
+        qregls[q] = LinearSpline.from_data(
+            xx,
+            yy,
+            knots=np.linspace(0, 1, n_knots),
+            q=q,
+            method="QuantileRegression",
+            backend="pyqreg",
+        )
+        print(".", end="")
+
+with Timer("Running natural cubic spline quantile regression with quantreg"):
+    qregncs = {}
+    for q in quantiles:
+        qregncs[q] = NaturalCubicSpline.from_data(
+            xx,
+            yy,
+            knots=np.linspace(0, 1, n_knots),
+            q=q,
+            method="QuantileRegression",
+            backend="pyqreg",
+        )
+        print(".", end="")
+
+
 # Plot everything
 with Timer("Plotting"):
     fig, ax = plt.subplots(1, 1)
@@ -99,14 +130,24 @@ with Timer("Plotting"):
         ax.plot(x, val, label=label, linestyle=":", color="g")
         label = None
         print(".", end="")
-    label = "Linear spline quantiles"
+    label = "Linear spline quantiles statsmodels"
     for q, f in smlsq.items():
         ax.plot(x, f(x), label=label, linestyle="-.", color="m")
         label = None
         print(".", end="")
-    label = "Natural cubic spline quantiles"
+    label = "Natural cubic spline quantiles statsmodels"
     for q, f in smcsq.items():
         ax.plot(x, f(x), label=label, linestyle="-.", color="c")
+        label = None
+        print(".", end="")
+    label = "Linear spline quantiles pyqreg"
+    for q, f in qregls.items():
+        ax.plot(x, f(x), label=label, linestyle="-.", color="b")
+        label = None
+        print(".", end="")
+    label = "Natural cubic spline quantiles pyqreg"
+    for q, f in qregncs.items():
+        ax.plot(x, f(x), label=label, linestyle="-.", color="r")
         label = None
         print(".", end="")
     ax.legend()
