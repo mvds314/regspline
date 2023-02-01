@@ -25,6 +25,14 @@ except ImportError:
 else:
     _has_cvxopt = True
 
+try:
+    from pyqreg import QuantReg as qrQuantReg
+except ImportError:
+    _has_pyqreg = False
+else:
+    _has_pyqreg = True
+
+
 from .util import type_wrapper, PandasWrapper
 
 
@@ -271,7 +279,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
         return_estim_result : boolean, optional
             If True, estimation results are returned. The default is False.
         backend : None or string
-            Force a certain backend, can be statsmodels or sklearn. Defaults to using statsmodels where possible.
+            Force a certain backend, can be statsmodels, sklearn, or pyqreg. Defaults to using statsmodels where possible.
 
         Notable kwargs
         ------
@@ -377,6 +385,27 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 ), "Something is wrong, this should give the same result"
                 if prune:
                     spline.prune_knots()
+            elif backend == "pyqreg":
+                assert _has_pyqreg, "Mising optional dependency pyqreg"
+                exog = spline.eval_basis(x, include_constant=add_constant)
+                model = qrQuantReg(y, exog)
+                q = kwargs.pop("q", 0.5)
+                result = model.fit(q, **kwargs)
+                spline.coeffs = result.params
+                insignificant = np.abs(result.tvalues) < 1.96
+                if prune and np.any(insignificant):
+                    add_constant = add_constant and not insignificant[0]
+                    spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
+                    return cls.from_data(
+                        x,
+                        y,
+                        knots=spline.knots,
+                        method=method,
+                        add_constant=add_constant,
+                        prune=False,
+                        return_estim_result=return_estim_result,
+                        **kwargs,
+                    )
             else:
                 raise ValueError("Invalid backend")
         elif method == "SVR":

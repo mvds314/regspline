@@ -9,7 +9,7 @@ import warnings
 from pathlib import Path
 
 from regspline import LinearSpline, HingeBasisFunction
-from regspline.base import _has_sklearn, _has_cvxopt
+from regspline.base import _has_sklearn, _has_cvxopt, _has_pyqreg
 
 
 def test_basis():
@@ -40,9 +40,7 @@ def test_spline():
     assert spline(knots[1]) == (knots[1] - knots[0]) * coeffs[1] + coeffs[0]
     assert (
         spline(knots[2])
-        == (knots[2] - knots[0]) * coeffs[1]
-        + (knots[1] - knots[0]) * coeffs[2]
-        + coeffs[0]
+        == (knots[2] - knots[0]) * coeffs[1] + (knots[1] - knots[0]) * coeffs[2] + coeffs[0]
     )
     spline = LinearSpline(knots, coeffs, extrapolation_method="const")
     assert spline(knots[-1] + 1) == spline(knots[-1])
@@ -53,9 +51,7 @@ def test_spline():
     assert isinstance(spline(pd.Series([1])), pd.Series)
     # eval basis test
     x = np.linspace(knots[0], knots[-1], num=10)
-    assert np.allclose(
-        spline(x), spline.eval_basis(x, include_constant=True).dot(spline.coeffs)
-    )
+    assert np.allclose(spline(x), spline.eval_basis(x, include_constant=True).dot(spline.coeffs))
     assert isinstance(spline.eval_basis(1), np.ndarray)
     assert isinstance(spline.eval_basis([1, 2]), np.ndarray)
     assert isinstance(spline.eval_basis(pd.Series([1, 2])), pd.DataFrame)
@@ -117,9 +113,7 @@ def test_from_data():
     x = np.repeat(x, 50)
     y = spline(x) + 0.01 * np.random.randn(*x.shape)
     fs = LinearSpline.from_data(x, y, knots=knots)
-    overlapping_knots = [0] + [
-        i + 1 for i, k in enumerate(fs.knots[:-1]) if k in spline.knots
-    ]
+    overlapping_knots = [0] + [i + 1 for i, k in enumerate(fs.knots[:-1]) if k in spline.knots]
     other_knots = [i + 1 for i, k in enumerate(fs.knots[:-1]) if k not in spline.knots]
     assert np.allclose(fs.coeffs[overlapping_knots], spline.coeffs, atol=1e-2)
     assert np.allclose(fs.coeffs[other_knots], 0, atol=1e-2)
@@ -133,9 +127,7 @@ def test_from_data():
     assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
     if _has_cvxopt:
         # Test LASSO estimation
-        fs = LinearSpline.from_data(
-            x, y, method="LASSO", knots=knots, prune=True, alpha=1
-        )
+        fs = LinearSpline.from_data(x, y, method="LASSO", knots=knots, prune=True, alpha=1)
         fs.prune_knots(tol=1e-2)
         assert np.allclose(fs.knots, spline.knots)
         assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
@@ -166,6 +158,36 @@ def test_from_data():
     fs.prune_knots(tol=1e-2)
     assert np.allclose(fs.knots, spline.knots)
     assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    if _has_sklearn:
+        fs = LinearSpline.from_data(
+            x,
+            y,
+            method="QuantileRegression",
+            q=0.5,
+            backend="sklearn",
+            knots=[0.1, 0.3, 0.5, 0.8, 0.9],
+            prune=True,
+        )
+        fs.prune_knots(tol=1e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    else:
+        warnings.warn("Optional dependency scikit learn not found, cannot quantile regression")
+    if _has_pyqreg:
+        fs = LinearSpline.from_data(
+            x,
+            y,
+            method="QuantileRegression",
+            q=0.5,
+            backend="pyqreg",
+            knots=[0.1, 0.3, 0.5, 0.8, 0.9],
+            prune=True,
+        )
+        fs.prune_knots(tol=1e-2)
+        assert np.allclose(fs.knots, spline.knots)
+        assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
+    else:
+        warnings.warn("Optional dependency pyqreg learn not found, cannot quantile regression")
 
 
 if __name__ == "__main__":
