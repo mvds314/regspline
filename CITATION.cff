@@ -1,0 +1,7 @@
+@software{regspline,
+  author = {Martin van der Schans},
+  title = {{Regspline: a Python library for linear regression splines
+  url = {https://github.com/mvds314/regspline},
+  version = {23.1},
+  year = {2023}
+}
