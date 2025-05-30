@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install .[SVR,LASSO,FASTQR]  # or just pip install . if you don't want extras
+          pip install .[SVR,LASSO] 
           pip install pytest
       - name: Run tests
         run: pytest
