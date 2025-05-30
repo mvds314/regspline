@@ -98,9 +98,7 @@ class LinearSpline(RegressionSplineBase):
                     HingeBasisFunction(k, **kwargs) for k in self.knots[1:-1]
                 ]
             else:
-                self._bi_cache = [
-                    HingeBasisFunction(k, **kwargs) for k in self.knots[:-1]
-                ]
+                self._bi_cache = [HingeBasisFunction(k, **kwargs) for k in self.knots[:-1]]
         return self._bi_cache
 
     @property

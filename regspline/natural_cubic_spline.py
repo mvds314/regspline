@@ -16,9 +16,9 @@ class _NaturalCubicSplineBasisFuncInterface(KnotsInterface, BasisFuncInterface, 
     def __init__(self, i, knots, xmin=-np.inf, xmax=np.inf, val=0):
         KnotsInterface.__init__(self, knots)
         BasisFuncInterface.__init__(self, xmin=xmin, xmax=xmax, val=val)
-        assert (
-            1 <= i <= self.n_knots - 1
-        ), f"Cannot initialize for {i}th knot, only possible up to {self.n_knots-1}th knot"
+        assert 1 <= i <= self.n_knots - 1, (
+            f"Cannot initialize for {i}th knot, only possible up to {self.n_knots - 1}th knot"
+        )
         self._i = i
         if np.isfinite(xmin):
             assert xmin <= self.knots[0]
@@ -220,14 +220,10 @@ class NaturalCubicSpline(RegressionSplineBase):
                 if self.n_knots <= 3:
                     return
                 if self.has_const:
-                    knots_to_prune = np.append(
-                        np.append(False, to_prune[3:]), [False, False]
-                    )
+                    knots_to_prune = np.append(np.append(False, to_prune[3:]), [False, False])
                     coeffs_to_prune = np.append([False, False, False], to_prune[3:])
                 else:
-                    knots_to_prune = np.append(
-                        np.append(False, to_prune[2:]), [False, False]
-                    )
+                    knots_to_prune = np.append(np.append(False, to_prune[2:]), [False, False])
                     coeffs_to_prune = np.append([False, False], to_prune[2:])
                 self.coeffs = None
                 self.knots = None

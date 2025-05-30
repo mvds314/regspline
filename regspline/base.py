@@ -380,9 +380,9 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 model = QuantileRegressor(**kwargs)
                 result = model.fit(spline.eval_basis(x, include_constant=False), y)
                 spline.coeffs = np.append(result.intercept_, result.coef_)
-                assert np.allclose(
-                    spline(x), result.predict(spline.eval_basis(x))
-                ), "Something is wrong, this should give the same result"
+                assert np.allclose(spline(x), result.predict(spline.eval_basis(x))), (
+                    "Something is wrong, this should give the same result"
+                )
                 if prune:
                     spline.prune_knots()
             elif backend == "pyqreg":
@@ -420,9 +420,9 @@ class RegressionSplineBase(KnotsInterface, ABC):
             model = LinearSVR(**kwargs)
             result = model.fit(spline.eval_basis(x, include_constant=False), y)
             spline.coeffs = np.append(result.intercept_, result.coef_)
-            assert np.allclose(
-                spline(x), result.predict(spline.eval_basis(x))
-            ), "Something is wrong, this should give the same result"
+            assert np.allclose(spline(x), result.predict(spline.eval_basis(x))), (
+                "Something is wrong, this should give the same result"
+            )
             if prune:
                 spline.prune_knots()
         elif method == "NuSVR":
@@ -437,9 +437,9 @@ class RegressionSplineBase(KnotsInterface, ABC):
             model = NuSVR(**kwargs)
             result = model.fit(spline.eval_basis(x, include_constant=False), y)
             spline.coeffs = np.append(result.intercept_, result.coef_)
-            assert np.allclose(
-                spline(x), result.predict(spline.eval_basis(x))
-            ), "Something is wrong, this should give the same result"
+            assert np.allclose(spline(x), result.predict(spline.eval_basis(x))), (
+                "Something is wrong, this should give the same result"
+            )
             if prune:
                 spline.prune_knots()
         else:

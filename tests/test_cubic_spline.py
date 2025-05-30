@@ -77,9 +77,7 @@ def test_spline():
     assert isinstance(spline(pd.Series([1])), pd.Series)
     # eval basis test
     x = np.linspace(knots[0], knots[-1], num=10)
-    assert np.allclose(
-        spline(x), spline.eval_basis(x, include_constant=True).dot(spline.coeffs)
-    )
+    assert np.allclose(spline(x), spline.eval_basis(x, include_constant=True).dot(spline.coeffs))
     assert isinstance(spline.eval_basis(1), np.ndarray)
     assert isinstance(spline.eval_basis([1, 2]), np.ndarray)
     assert isinstance(spline.eval_basis(pd.Series([1, 2])), pd.DataFrame)
@@ -141,9 +139,7 @@ def test_from_data():
     x = np.repeat(x, 500)
     y = spline(x) + 0.001 * np.random.randn(*x.shape)
     fs = NaturalCubicSpline.from_data(x, y, knots=knots, prune=True)
-    overlapping_knots = [0] + [
-        i + 1 for i, k in enumerate(fs.knots[:-1]) if k in spline.knots
-    ]
+    overlapping_knots = [0] + [i + 1 for i, k in enumerate(fs.knots[:-1]) if k in spline.knots]
     other_knots = [i + 1 for i, k in enumerate(fs.knots[:-1]) if k not in spline.knots]
     assert np.allclose(fs.coeffs[overlapping_knots], spline.coeffs, atol=1e-2)
     assert np.allclose(fs.coeffs[other_knots], 0, atol=1e-2)
