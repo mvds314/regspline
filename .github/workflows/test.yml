@@ -26,4 +26,4 @@ jobs:
       - name: Run tests
         run: pytest
       - name: Check Ruff formatting
-        run: ruff format check .
+        run: ruff format --check
