@@ -44,14 +44,14 @@ There are two optional dependencies: `scikit-learn`, and `cvxopt`. They are only
 
 The module contains two splines:
 
-* A linear spline represented by Hinge functions: $h_i(x) = \max(x-k_i,0)$, where $k_i$ are the knots.
-* A natural cubic spline.
+- A linear spline represented by Hinge functions: $h_i(x) = \max(x-k_i,0)$, where $k_i$ are the knots.
+- A natural cubic spline.
 
 The splines chosen:
 
-* have coefficents that have a one-to-one correspondence with the knots.
-* have the ability that knots can be removed, e.g., when the corresponding coefficient is small or insignificant, without changing the basis functions corresponding to other knots.
-* have the ability to represent functions with sparse basis.
+- have coefficents that have a one-to-one correspondence with the knots.
+- have the ability that knots can be removed, e.g., when the corresponding coefficient is small or insignificant, without changing the basis functions corresponding to other knots.
+- have the ability to represent functions with sparse basis.
 
 One way to interpret, e.g., the linear spline in the hings basis is as follows. $h_1(x)$ sets an initial slope from the first knot onwards. Then next basis function $h_2(x)$ can adjust the slope at the knot $k_2$, if no adjustment is required, its coefficient is insignificant and the knot can be removed from the spline without any impact on the other basis functions.
 
@@ -59,9 +59,9 @@ One way to interpret, e.g., the linear spline in the hings basis is as follows. 
 
 Some projects with related methods:
 
-* [basis-expansions](https://github.com/madrury/basis-expansions)
-* [py-earth](https://github.com/scikit-learn-contrib/py-earth)
-* Quantile regression using decision trees [scikit-garden](https://scikit-garden.github.io/)
+- [basis-expansions](https://github.com/madrury/basis-expansions)
+- [py-earth](https://github.com/scikit-learn-contrib/py-earth)
+- Quantile regression using decision trees [scikit-garden](https://scikit-garden.github.io/)
 
 The module differs from these implementations as it implements the splines as functions, and they are not integrated within an estimation framework.
 
@@ -78,9 +78,9 @@ Then navigate to the folder containing `setup.py` and run
 ```bash
 pip install -e .
 ```
+
 to install the package in edit mode.
 
 Run unittests with `pytest`.
 
 Install the optional dependencies to test all functionality.
-
