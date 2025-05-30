@@ -35,7 +35,7 @@ Several regression types are supported to extract the splines from data, includi
 You can install this library directly from github:
 
 ```bash
-pip install git+https://github.com/mvds314/regspline.git
+pip install regspline.git
 ```
 
 There are two optional dependencies: `scikit-learn`, and `cvxopt`. They are only required to estimate splines on data with, respectively, support vector regressions, and LASSO.
