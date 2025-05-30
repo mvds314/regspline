@@ -217,7 +217,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
         linear regression pruposes.
         """
         wrapper = PandasWrapper(x)
-        x = np.asanyarray(x)
+        x = np.asanyarray(x, dtype=np.float64)
         y = [np.ones(x.shape)] if include_constant else []
         y += [bi(x) for bi in self._bi]
         y = np.asanyarray(y).T
