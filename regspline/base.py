@@ -82,7 +82,7 @@ class KnotsInterface(ABC):
         if value is not None:
             value = np.asanyarray(value)
             assert len(value) >= 2, "Must specify at least 2 knots"
-            assert np.all(value[:-1] < value[1:]), "Knots are assumed to be sorted and unique"
+            assert np.all(value[:-1] <= value[1:]), "Knots are assumed to be sorted and unique"
         self._knots = value
 
     @property
