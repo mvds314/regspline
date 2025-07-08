@@ -1,7 +1,7 @@
 [project]
 name = "regspline"
 description = "Regression spline"
-version = "25.7.1"
+version = "25.7.2"
 authors = [{ name = "Martin van der Schans" }]
 readme = "README.md"
 keywords = ["statistics", "regression", "splines"]

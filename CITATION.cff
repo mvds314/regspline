@@ -4,6 +4,6 @@ authors:
 - family-names: "van der Schans"
   given-names: "Martin"
 title: "Regspline: a Python library for linear regression splines"
-version: 23.1
+version: <ADD VERSION>
 date-released: 2023-01-10
 url: "https://github.com/mvds314/regspline"

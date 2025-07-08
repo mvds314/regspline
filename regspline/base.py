@@ -145,6 +145,16 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 and self.extrapolation_method == other.extrapolation_method
             )
 
+    def copy(self):
+        """
+        Returns a copy of the spline
+        """
+        return self.__class__(
+            np.copy(self.knots),
+            np.copy(self.coeffs),
+            extrapolation_method=self.extrapolation_method,
+        )
+
     @property
     def extrapolation_method(self):
         return self._extrapolation_method
