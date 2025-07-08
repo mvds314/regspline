@@ -16,6 +16,15 @@ def test_hash():
     assert hash(LinearSpline(knots, coeffs)) != hash(NaturalCubicSpline(knots, coeffs))
 
 
+def test_equality():
+    knots = [0.1, 0.5, 0.9, 1]
+    coeffs = [2, 1, 1, 3]
+    assert LinearSpline(knots, coeffs) == LinearSpline(knots, coeffs)
+    assert LinearSpline(knots[1:], coeffs[1:]) != LinearSpline(knots, coeffs)
+    assert LinearSpline(knots, coeffs[1:]) != LinearSpline(knots, coeffs)
+    assert LinearSpline(knots, coeffs) != NaturalCubicSpline(knots, coeffs)
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(
