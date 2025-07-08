@@ -73,6 +73,11 @@ class KnotsInterface(ABC):
         self._knots = None
         self.knots = knots
 
+    def __eq__(self, other):
+        if not isinstance(other, KnotsInterface):
+            return False
+        return np.array_equal(self.knots, other.knots)
+
     @property
     def knots(self):
         return self._knots
@@ -82,7 +87,7 @@ class KnotsInterface(ABC):
         if value is not None:
             value = np.asanyarray(value)
             assert len(value) >= 2, "Must specify at least 2 knots"
-            assert np.all(value[:-1] < value[1:]), "Knots are assumed to be sorted and unique"
+            assert np.all(value[:-1] <= value[1:]), "Knots are assumed to be sorted and unique"
         self._knots = value
 
     @property
@@ -128,6 +133,17 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 tuple(self.coeffs),
             )
         )
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        elif not KnotsInterface.__eq__(self, other):
+            return False
+        else:
+            return (
+                np.array_equal(self.coeffs, other.coeffs)
+                and self.extrapolation_method == other.extrapolation_method
+            )
 
     @property
     def extrapolation_method(self):
