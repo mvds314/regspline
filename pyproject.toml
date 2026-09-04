@@ -27,7 +27,7 @@ line-length = 99
 [tool.ruff.lint]
 select = ["E", "F", "W"] # Pycodestyle, pyflakes, bugbear, and isort
 ignore = [
-  # Ignore common conflicts with Blackjj
+  # Ignore common conflicts with Black
   "E203",
   "E501",
   "E731", # Ignore lamda expression warning
