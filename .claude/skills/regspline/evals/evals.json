@@ -10,7 +10,7 @@
       "files": [],
       "assertions": [
         "Chooses LinearSpline rather than NaturalCubicSpline, matching the user's need to locate kinks",
-        "Uses quantile-spaced (or otherwise non-uniform) knots to handle the skewed x distribution",
+        "Keeps the initial candidate set modest (roughly 15-25 knots) rather than packing in 40 or more, which makes adjacent hinge bases collinear and defeats t-value pruning",
         "Starts from an over-specified knot set and reduces it via pruning",
         "Final knot count is in single digits, honouring 'a handful, not fifty'",
         "Prints the surviving knot locations",
@@ -43,7 +43,7 @@
     {
       "id": 2,
       "name": "quantile-backend-significance-pruning",
-      "prompt": "i'm fitting a p10 downside curve for about 180k trades. x is utilisation, heavily bunched below 20 but with a long tail out to 100, and y has a couple of regime changes rather than one smooth bend. i need a compact list of knots for the risk note, and when i say prune i mean statistically insignificant knots, not just coefficients that happen to be numerically tiny. pyqreg is installed. my first instinct was sklearn's QuantileRegressor because highs sounds fast, but i'm not sure. can you give me a regspline script and explain the backend choice? please also include a quick sanity check showing whether pruning is just slicing the first fit's coefficients or doing a real refit.",
+      "prompt": "i'm fitting a p10 downside curve for about 180k trades. x is utilisation, heavily bunched below 20 but with a long tail out to 100, and y has a couple of regime changes rather than one smooth bend. i need a compact list of knots for the risk note, and when i say prune i mean statistically insignificant knots, not just coefficients that happen to be numerically tiny. pyqreg is installed. my first instinct was sklearn's QuantileRegressor because highs sounds fast, but i'm not sure. can you give me a regspline script and explain the backend choice? separately, and off to the side rather than woven into the main fitting path, i'm curious whether regspline's own pruning just slices the first fit's coefficients or does a real refit - a quick throwaway check would settle it.",
       "expected_output": "A script using LinearSpline.from_data with method='QuantileRegression', q=0.10, quantile-spaced initial knots for the skewed x distribution, backend='pyqreg' because pyqreg is installed and the user needs both speed and t-values, and prune=True for significance pruning. The answer should explain that statsmodels would also provide t-values but is less attractive for the stated large sample, while sklearn QuantileRegressor has no t-values so regspline's pruning path there is magnitude-based rather than significance-based. The sanity check should fit once with prune=False and return_estim_result=True, inspect abs(result.tvalues) < 1.96, then fit with prune=True and compare the pruned/refit coefficients against the coefficients obtained by applying the same mask to the first fit; it should state that differences are expected because the t-value pruning path refits on the surviving knots.",
       "files": [],
       "assertions": [
