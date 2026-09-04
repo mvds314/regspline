@@ -1,0 +1,27 @@
+{
+  "skill_name": "regspline",
+  "notes": "Each run works on its own copy of the repo under its output dir. No run touches the real working tree.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "fit-sparse-kinked-signal",
+      "prompt": "I've got about 5000 (x, y) observations where y is roughly piecewise linear in x with two or three kinks in it, plus a fair bit of noise. x runs from 0 to 40 but the values are bunched up near the low end. I want a fitted curve that actually tells me WHERE the kinks are rather than just a smooth blob, and I'd like it to end up with only a handful of knots, not fifty. Can you write me a script using regspline that does this and prints out the knot locations it settled on? Also I need to evaluate the fitted thing at x=45 later so tell me what happens there.",
+      "expected_output": "Script using LinearSpline (not NaturalCubicSpline) with quantile-spaced knots given the skew, an over-specified initial knot set, prune=True (or LASSO+prune), printing spline.knots. Explains that x=45 is outside the knot range so the default 'nan' extrapolation returns NaN, and names the alternatives.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "add-wls-estimation-method",
+      "prompt": "Add a weighted least squares option to regspline so I can pass per-observation weights when fitting. I want it to work the same way as the OLS path does, including the knot pruning. Add a test for it too.",
+      "expected_output": "A 'WLS' branch added to RegressionSplineBase.from_data in base.py using sm.WLS, design matrix built via spline.eval_basis(x, include_constant=add_constant), coeffs assigned to spline.coeffs, t-value based pruning with a recursive from_data call that re-passes weights explicitly (since it was popped from kwargs). A test added under tests/. ruff format clean.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "diagnose-constant-and-nan",
+      "prompt": "something weird is going on with regspline. i fit a LinearSpline with 12 knots and got back 12 coefficients, but i thought there were supposed to be 11 basis functions? and then when i tried to reuse the coefficients by constructing LinearSpline(knots, coeffs[1:]) it gave me a totally different curve. also half my predictions are nan now. what am i doing wrong",
+      "expected_output": "Explains that coeffs[0] is the constant when len(coeffs)==len(knots), that has_const is derived from the length rather than being a flag, so dropping coeffs[0] produces a constant-free spline with a shifted meaning rather than the same curve. Explains the NaNs come from the default extrapolation_method='nan' outside [k_1, k_N] and lists the alternatives.",
+      "files": []
+    }
+  ]
+}
