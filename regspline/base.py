@@ -346,6 +346,26 @@ class RegressionSplineBase(KnotsInterface, ABC):
         # Popped once here so that every branch, and every recursive pruning refit,
         # observes the same missing-data policy.
         missing = kwargs.pop("missing", "none")
+        # Settings that branches pop out of kwargs must be collected here instead, so
+        # that the pruning refit below reproduces the original fit exactly. Forgetting
+        # one silently changes the estimate rather than raising.
+        refit_settings = dict(missing=missing, extrapolation_method=extrapolation_method)
+
+        def refit(add_constant):
+            """Re-estimates on the pruned knots, preserving every original setting."""
+            return cls.from_data(
+                x,
+                y,
+                knots=spline.knots,
+                method=method,
+                add_constant=add_constant,
+                prune=False,
+                return_estim_result=return_estim_result,
+                backend=backend,
+                **refit_settings,
+                **kwargs,
+            )
+
         # Estimate
         if method == "OLS":
             assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
@@ -361,23 +381,13 @@ class RegressionSplineBase(KnotsInterface, ABC):
             if prune and np.any(insignificant):
                 add_constant = add_constant and not insignificant[0]
                 spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-                return cls.from_data(
-                    x,
-                    y,
-                    knots=spline.knots,
-                    method=method,
-                    add_constant=add_constant,
-                    prune=False,
-                    return_estim_result=return_estim_result,
-                    missing=missing,
-                    extrapolation_method=extrapolation_method,
-                    **kwargs,
-                )
+                return refit(add_constant)
         elif method == "WLS":
             assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
             # Defaults to sm.WLS's own default so that method="WLS" without weights
             # behaves like OLS instead of failing inside numpy's sqrt.
             weights = kwargs.pop("weights", 1.0)
+            refit_settings["weights"] = weights
             smkwargs = dict(
                 exog=spline.eval_basis(x, include_constant=add_constant),
                 weights=weights,
@@ -391,19 +401,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             if prune and np.any(insignificant):
                 add_constant = add_constant and not insignificant[0]
                 spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-                return cls.from_data(
-                    x,
-                    y,
-                    knots=spline.knots,
-                    method=method,
-                    add_constant=add_constant,
-                    prune=False,
-                    return_estim_result=return_estim_result,
-                    weights=weights,
-                    missing=missing,
-                    extrapolation_method=extrapolation_method,
-                    **kwargs,
-                )
+                return refit(add_constant)
         elif method == "LASSO":
             assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
             assert _has_cvxopt, "Mising optional dependency cvxopt"
@@ -432,18 +430,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 if prune and np.any(insignificant):
                     add_constant = add_constant and not insignificant[0]
                     spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-                    return cls.from_data(
-                        x,
-                        y,
-                        knots=spline.knots,
-                        method=method,
-                        add_constant=add_constant,
-                        prune=False,
-                        return_estim_result=return_estim_result,
-                        missing=missing,
-                        extrapolation_method=extrapolation_method,
-                        **kwargs,
-                    )
+                    return refit(add_constant)
             elif backend == "sklearn":
                 assert _has_sklearn, "Mising optional dependency scikit learn"
                 kwargs.setdefault("fit_intercept", add_constant)
@@ -463,23 +450,14 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 exog = spline.eval_basis(x, include_constant=add_constant)
                 model = qrQuantReg(y, exog)
                 q = kwargs.pop("q", 0.5)
+                refit_settings["q"] = q
                 result = model.fit(q, **kwargs)
                 spline.coeffs = result.params
                 insignificant = np.abs(result.tvalues) < 1.96
                 if prune and np.any(insignificant):
                     add_constant = add_constant and not insignificant[0]
                     spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-                    return cls.from_data(
-                        x,
-                        y,
-                        knots=spline.knots,
-                        method=method,
-                        add_constant=add_constant,
-                        prune=False,
-                        return_estim_result=return_estim_result,
-                        extrapolation_method=extrapolation_method,
-                        **kwargs,
-                    )
+                    return refit(add_constant)
             else:
                 raise ValueError("Invalid backend")
         elif method == "SVR":

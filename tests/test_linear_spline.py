@@ -278,6 +278,37 @@ def test_from_data_extrapolation_method_is_forwarded_to_pruning_refit():
     assert not np.isnan(fs(1.5))
 
 
+def test_from_data_q_is_forwarded_to_pruning_refit():
+    """q and backend must survive the recursive refit triggered by prune=True.
+
+    Without forwarding, a p10 request silently came back as a median fit.
+    """
+    if not _has_pyqreg:
+        warnings.warn("Optional dependency pyqreg not found, cannot test q forwarding")
+        return
+    rng = np.random.default_rng(7)
+    n = 8000
+    x = np.sort(rng.uniform(0, 10, n))
+    y = 2.0 + 1.0 * x + rng.normal(0, 3.0, n)
+    knots = np.linspace(0, 10, 12)
+    expected_p10 = 2.0 + 5.0 - 3.0 * 1.2816
+    expected_median = 2.0 + 5.0
+    for prune in (False, True):
+        fs = LinearSpline.from_data(
+            x,
+            y,
+            knots=knots,
+            method="QuantileRegression",
+            backend="pyqreg",
+            q=0.10,
+            prune=prune,
+        )
+        value = float(fs(5.0))
+        assert abs(value - expected_p10) < abs(value - expected_median), (
+            f"prune={prune} fitted the median instead of the 10th percentile"
+        )
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(
