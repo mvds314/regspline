@@ -100,7 +100,23 @@ self.knots = new_knots
 `prune_knots` does exactly this, wrapped in `try/except` that restores the original
 knots and coeffs before re-raising. **Preserve that fail-safe.** A half-updated spline
 is worse than an exception: it evaluates without complaint and returns wrong numbers.
-If you add a method that mutates both attributes, copy the same pattern.
+If you add a method that mutates both attributes, copy the same pattern. Restore from
+copies taken before any mutation, and slice from those copies too: the cubic
+implementation once shortened `self.coeffs` early to drop an insignificant constant,
+which flipped `has_const` midway through and desynchronised the masks built after it.
+
+The knots setter additionally requires strictly increasing values. Coincident
+neighbours duplicate a basis function and make the design matrix singular, which
+surfaces as arbitrary-looking coefficients rather than an error. Judge closeness
+against the knot *span*, never against the knot values: `np.isclose` defaults to a
+relative tolerance, which would reject hourly knots on unix timestamps as
+"coincident" because the gaps are small next to 1.7e9.
+
+Equality and hashing must agree. `KnotsInterface.__eq__` compares the concrete type
+and the knots, and the basis-function classes extend both `__eq__` and `__hash__`
+with `_i`, since two basis functions over the same knots still differ by the knot
+they are anchored to. Defining `__eq__` alone sets `__hash__ = None` and makes the
+class unhashable.
 
 ## Invariant 3: the basis cache must be invalidated
 
@@ -172,7 +188,7 @@ Follow the shape of the existing `"OLS"` branch:
 elif method == "WLS":
     assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
     weights = kwargs.pop("weights", 1.0)
-    missing = kwargs.pop("missing", "none")
+    refit_settings["weights"] = weights   # <- popped, so record it for the refit
     smkwargs = dict(
         exog=spline.eval_basis(x, include_constant=add_constant),
         weights=weights,
@@ -186,17 +202,7 @@ elif method == "WLS":
     if prune and np.any(insignificant):
         add_constant = add_constant and not insignificant[0]
         spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
-        return cls.from_data(
-            x, y,
-            knots=spline.knots,
-            method=method,
-            add_constant=add_constant,
-            prune=False,
-            return_estim_result=return_estim_result,
-            weights=weights,          # <- must be re-passed; it was popped above
-            missing=missing,          # <- same rule for estimator kwargs
-            **kwargs,
-        )
+        return refit(add_constant)
 ```
 
 Points that generalise to any new method:
@@ -207,17 +213,22 @@ Points that generalise to any new method:
    where validation happens.
 3. **Recursive refit is the pruning pattern for t-value backends.** Prune, then
    re-enter `cls.from_data` with the surviving knots and `prune=False` to stop the
-   recursion. The second fit is what makes the pruned coefficients correct.
+   recursion. The second fit is what makes the pruned coefficients correct. All four
+   refit sites go through the nested `refit()` helper; don't hand-roll a fifth
+   `cls.from_data` call.
 4. **When you pop a kwarg only to pass it explicitly, use the downstream default.**
    `statsmodels.WLS` defaults `weights` to `1.0`, meaning unweighted. A more
    Python-looking sentinel such as `None` is not equivalent: it is forwarded to
    statsmodels, which passes it on to `np.sqrt` and fails before fitting.
-5. **Anything you `pop` from `kwargs` must be passed explicitly on the recursive
-   call**, or it silently vanishes on the refit. With `weights` that would mean the
-   pruned fit quietly becomes OLS. With `missing`, it means `missing="drop"` is used
-   on the first fit and then lost on the pruned refit. The shipped OLS and
-   statsmodels `QuantileRegression` branches currently have this latent bug: they
-   pop `missing` into `smkwargs` and recurse with only `**kwargs`.
+5. **Anything you `pop` from `kwargs` must go into `refit_settings`**, or it silently
+   vanishes on the refit and the pruned fit answers a different question than the one
+   asked. This bug shipped three times before the helper existed: `missing="drop"`
+   returned all-NaN coefficients, `extrapolation_method` reset itself to `"nan"`, and
+   `q=0.10` came back as a median fit. Settings left *inside* `kwargs` need no action,
+   which is why the statsmodels quantile branch can use
+   `kwargs.setdefault("q", 0.5)` and forward nothing. Never record a key in both
+   places: `refit()` splats `**refit_settings` and `**kwargs` together, so a
+   duplicate raises `TypeError`.
 6. **`weights` is per-observation and pruning removes columns, not rows**, so the
    weight vector stays aligned across the refit. No subsetting needed.
 7. A default-path test is worth adding for every new estimation method. A test that
@@ -225,9 +236,13 @@ Points that generalise to any new method:
    with no optional method kwargs is the cheapest guard.
 8. If the backend has no t-values, use the magnitude path instead:
    `if prune: spline.prune_knots()`.
-9. For sklearn-style backends, follow the existing convention of asserting
-   `np.allclose(spline(x), result.predict(spline.eval_basis(x)))`. It's a cheap guard
-   that the coefficient packing (intercept first) was done right.
+9. For sklearn-style backends, pack the coefficients with `_sklearn_coeffs(result,
+   fit_intercept)` rather than `np.append(result.intercept_, result.coef_)`. sklearn
+   exposes `intercept_` even when `fit_intercept=False`, where it is a hard `0.0`;
+   prepending it unconditionally invents a constant and breaks the
+   `n_knots`/`n_coeffs` invariant. Then assert
+   `np.allclose(spline(x), result.predict(spline.eval_basis(x)))` as the existing
+   branches do — a cheap guard that the packing was done right.
 
 Then finish the job: add a row to the method table in `SKILL.md`, add a test beside
 the existing ones in `tests/`, and mention it in `README.md` if it's user-facing.

@@ -67,6 +67,16 @@ and no flag to set — the shape *is* the flag. Anything else is rejected by val
 
 Other conveniences: `len(s)` is the knot count, `s.copy()`, and `==`/`hash()` compare
 knots, coeffs, and extrapolation method (so splines work as dict keys and in caches).
+Hashing works before a fit, while `coeffs` is still `None`.
+
+**Knots must be strictly increasing.** Coincident knots are rejected by the setter,
+along with gaps negligible against the knot span. Two knots at the same place give two
+identical basis functions and a singular design matrix, which statsmodels solves via
+pseudo-inverse rather than refusing, so the fit returns a plausible-looking answer
+with the slope split arbitrarily across the pair. The check compares gaps to the span
+rather than to the knot values, so knots far from zero — epoch timestamps, price
+levels — are fine. Build candidate knots from quantiles of skewed data with
+`np.unique(np.quantile(x, ...))`, since ties are common there.
 
 ## Extrapolation modes
 
@@ -122,6 +132,10 @@ default and returns t-values (so it supports significance-based pruning), `pyqre
 is markedly faster on large samples and also gives t-values, and `sklearn` uses the
 HiGHS LP solver but gives no inference. `examples/example_quantile_regression.py`
 times all three side by side.
+
+With `add_constant=False`, the sklearn `QuantileRegression` and `SVR` branches return
+`n_knots - 1` coefficients and `has_const` is `False`, matching the statsmodels
+branches. `NuSVR` always estimates an intercept and asserts `add_constant`.
 
 ### Finding a few knots from many candidates
 

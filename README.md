@@ -29,6 +29,11 @@ plt.plot(x, s(x))
 
 Several regression types are supported to extract the splines from data, including OLS, WLS, LASSO, and quantile regression. For weighted least squares pass per-observation weights, e.g. `method="WLS", weights=w`. See the example files.
 
+Two notes on behaviour:
+
+- Knots must be strictly increasing. Coincident knots duplicate a basis function and make the design matrix singular, so they are rejected rather than silently fitted. Gaps are judged against the span of the knots, so covariates far from zero such as timestamps are unaffected. When building knots from quantiles of skewed data, deduplicate with `np.unique`.
+- `prune=True` refits on the surviving knots, and that refit reuses the settings of the first fit, so `q`, `weights`, `missing`, `backend`, and `extrapolation_method` all carry over.
+
 ## Installation
 
 You can install this library directly from github:
@@ -37,7 +42,7 @@ You can install this library directly from github:
 pip install regspline.git
 ```
 
-There are two optional dependencies: `scikit-learn`, and `cvxopt`. They are only required to estimate splines on data with, respectively, support vector regressions, and LASSO.
+There are three optional dependencies: `scikit-learn`, `cvxopt`, and `pyqreg`. They are only required to estimate splines on data with, respectively, support vector regressions, LASSO, and faster quantile regression.
 
 ## Background
 

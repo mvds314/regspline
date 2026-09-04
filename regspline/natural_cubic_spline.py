@@ -25,6 +25,14 @@ class _NaturalCubicSplineBasisFuncInterface(KnotsInterface, BasisFuncInterface, 
         if np.isfinite(xmax):
             assert xmax >= self.knots[-1]
 
+    def __eq__(self, other):
+        # Two basis functions over the same knots still differ by which knot they
+        # are anchored to, so the index has to take part in equality and hashing.
+        return KnotsInterface.__eq__(self, other) and self._i == other._i
+
+    def __hash__(self):
+        return hash((KnotsInterface.__hash__(self), self._i))
+
     @property
     def ref(self):
         return self.knots[self._i - 1]

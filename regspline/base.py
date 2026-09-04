@@ -87,7 +87,7 @@ class KnotsInterface(ABC):
         self.knots = knots
 
     def __eq__(self, other):
-        if not isinstance(other, KnotsInterface):
+        if type(other) is not type(self):
             return False
         return np.array_equal(self.knots, other.knots)
 
@@ -108,12 +108,16 @@ class KnotsInterface(ABC):
         if value is not None:
             value = np.asanyarray(value)
             assert len(value) >= 2, "Must specify at least 2 knots"
-            assert np.all(np.less_equal(value[:-1], value[1:])), "Knots are assumed to be sorted"
-            # Coincident knots add a basis function that duplicates its neighbour,
-            # which makes the design matrix singular instead of failing outright.
-            assert not np.any(np.isclose(value[:-1], value[1:])), (
-                "Knots are assumed to be unique, found coincident knots at "
-                f"{np.flatnonzero(np.isclose(value[:-1], value[1:]))}"
+            gaps = np.diff(value)
+            assert np.all(gaps >= 0), "Knots are assumed to be sorted"
+            # Coincident knots add a basis function that duplicates its neighbour, which
+            # makes the design matrix singular instead of failing outright. Judge a gap
+            # against the span of the knots, not against their magnitude: knots at epoch
+            # timestamps or price levels sit far from zero but are perfectly separated.
+            too_close = gaps <= 1e-10 * (value[-1] - value[0])
+            assert not np.any(too_close), (
+                "Knots are assumed to be sorted and unique, found coincident knots at "
+                f"{np.flatnonzero(too_close)}"
             )
 
         self._knots = value

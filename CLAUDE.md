@@ -31,7 +31,7 @@ with `--pdb`, so files can be run directly for debugging.
 - `BasisFuncInterface` — a basis function object. Subclasses implement `_apply(x)`;
   the base `__call__` handles clipping outside `[xmin, xmax]` to `val` (used to produce
   NaN extrapolation).
-- `KnotsInterface` — knot storage plus validation (sorted, >= 2 knots).
+- `KnotsInterface` — knot storage plus validation (strictly increasing, >= 2 knots).
 - `RegressionSplineBase(KnotsInterface)` — the spline: `s(x) = const + sum(c_i * b_i(x))`.
   Subclasses supply only `_validate_knots_coeffs`, `_bi` (the basis function list),
   `has_const`, and `prune_knots`.
@@ -64,11 +64,15 @@ changing the other basis functions. Preserve this property in any new spline typ
   in `base.py`, which then dispatches on `method` and an optional `backend`
   (`"statsmodels"` / `"sklearn"` / `"pyqreg"`). Follow the existing branch shape: build the
   design matrix with `spline.eval_basis(x, include_constant=add_constant)`, assign
-  `spline.coeffs`, then honour `prune`. For t-value-based backends, pruning re-enters
-  `cls.from_data` recursively with the pruned knots and `prune=False`; for backends without
-  t-values it calls `spline.prune_knots()` (magnitude-based). sklearn branches assign
-  `np.append(result.intercept_, result.coef_)` and assert `spline(x)` matches
-  `result.predict(...)`.
+  `spline.coeffs`, then honour `prune`. For t-value-based backends, pruning calls the
+  nested `refit()` helper, which re-enters `cls.from_data` with the pruned knots and
+  `prune=False`; for backends without t-values it calls `spline.prune_knots()`
+  (magnitude-based). **Anything popped out of `kwargs` must be recorded in
+  `refit_settings`**, or the pruned refit silently answers a different question — this
+  bug shipped three times, most recently as a `q=0.10` request returning a median fit.
+  sklearn branches pack coefficients with `_sklearn_coeffs(result, fit_intercept)`,
+  because `intercept_` is a hard `0.0` when no intercept was fitted, and assert
+  `spline(x)` matches `result.predict(...)`.
 - **Optional dependencies** are probed at import in `base.py` into module-level
   `_has_sklearn`, `_has_cvxopt`, `_has_pyqreg` flags. Code paths `assert _has_*` with a
   "Missing optional dependency" message; tests import these flags and guard with
