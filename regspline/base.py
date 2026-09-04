@@ -341,7 +341,8 @@ class RegressionSplineBase(KnotsInterface, ABC):
             knots = np.linspace(np.min(x), np.max(x), num=knots)
         else:
             knots = np.asanyarray(knots)
-        spline = cls(knots, None, extrapolation_method=kwargs.pop("extrapolation_method", "nan"))
+        extrapolation_method = kwargs.pop("extrapolation_method", "nan")
+        spline = cls(knots, None, extrapolation_method=extrapolation_method)
         # Popped once here so that every branch, and every recursive pruning refit,
         # observes the same missing-data policy.
         missing = kwargs.pop("missing", "none")
@@ -369,6 +370,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     prune=False,
                     return_estim_result=return_estim_result,
                     missing=missing,
+                    extrapolation_method=extrapolation_method,
                     **kwargs,
                 )
         elif method == "WLS":
@@ -399,6 +401,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     return_estim_result=return_estim_result,
                     weights=weights,
                     missing=missing,
+                    extrapolation_method=extrapolation_method,
                     **kwargs,
                 )
         elif method == "LASSO":
@@ -438,6 +441,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                         prune=False,
                         return_estim_result=return_estim_result,
                         missing=missing,
+                        extrapolation_method=extrapolation_method,
                         **kwargs,
                     )
             elif backend == "sklearn":
@@ -473,6 +477,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                         add_constant=add_constant,
                         prune=False,
                         return_estim_result=return_estim_result,
+                        extrapolation_method=extrapolation_method,
                         **kwargs,
                     )
             else:

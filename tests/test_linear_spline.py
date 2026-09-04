@@ -238,6 +238,46 @@ def test_from_data_missing_is_forwarded_to_pruning_refit(method):
     assert not np.any(np.isnan(fs.coeffs))
 
 
+def test_prune_knots_never_prunes_first_knot():
+    """The first knot is the left domain boundary and must survive pruning."""
+    knots = [0.0, 1.0, 2.0, 3.0]
+    # First coefficient after the constant is the overall slope; ask to prune it
+    ls = LinearSpline(knots, [0.5, 0.0, 2.0, 0.0])
+    ls.prune_knots(method="coeffs", coeffs_to_prune=[False, True, False, True])
+    assert ls.knots[0] == 0.0
+    assert ls.knots[-1] == 3.0
+    assert len(ls.knots) == len(ls.coeffs)
+    # Magnitude pruning must protect the boundary too
+    ls = LinearSpline(knots, [0.0, 2.0, 0.0])
+    ls.prune_knots(tol=1e-6)
+    assert ls.knots[0] == 0.0
+    assert ls.knots[-1] == 3.0
+
+
+def test_from_data_prune_keeps_domain_when_first_basis_insignificant():
+    """Pruning must not shrink the domain and crash the recursive refit."""
+    rng = np.random.default_rng(0)
+    truth = LinearSpline([0, 1, 3, 4], [0.0, 2.0, -1.5, 0.5])
+    x = np.linspace(0, 4, 2000)
+    y = truth(x) + (0.05 + 0.6 * x) * rng.standard_normal(x.shape[0])
+    knots = np.linspace(0, 4, 40)
+    fs = LinearSpline.from_data(x, y, knots=knots, method="OLS", prune=True)
+    assert fs.knots[0] == knots[0]
+    assert fs.knots[-1] == knots[-1]
+    assert not np.any(np.isnan(fs(x)))
+
+
+def test_from_data_extrapolation_method_is_forwarded_to_pruning_refit():
+    """extrapolation_method must survive the recursive refit triggered by prune=True."""
+    _, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 7)
+    fs = LinearSpline.from_data(
+        x, y, knots=knots, method="OLS", prune=True, extrapolation_method="basis"
+    )
+    assert fs.extrapolation_method == "basis"
+    assert not np.isnan(fs(1.5))
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(
