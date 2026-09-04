@@ -53,10 +53,10 @@ would fly off. Linear splines extrapolate with whatever slope the last segment h
 ```python
 from regspline import LinearSpline, NaturalCubicSpline
 
-s = LinearSpline([0, 0.5, 1], [0, 1, 1])   # 3 knots, 3 coeffs -> first is the constant
-s(0.75)                                     # scalar in, scalar out
-s(np.linspace(0, 1, 50))                    # array in, array out
-s(pd.Series(x))                             # Series in, Series out (index preserved)
+s = LinearSpline([0, 0.5, 1], [0, 1, 1])  # 3 knots, 3 coeffs -> first is the constant
+s(0.75)  # scalar in, scalar out
+s(np.linspace(0, 1, 50))  # array in, array out
+s(pd.Series(x))  # Series in, Series out (index preserved)
 ```
 
 **The constant is implicit in the coefficient count.** This trips people up
@@ -161,8 +161,8 @@ spline = LinearSpline.from_data(
 )
 spline.extrapolation_method = "basis"  # choose this deliberately before evaluating at 45
 
-print(spline.knots)      # retained knots; interior ones are the kink locations
-print(spline(45))        # deliberate extrapolation beyond the data range
+print(spline.knots)  # retained knots; interior ones are the kink locations
+print(spline(45))  # deliberate extrapolation beyond the data range
 ```
 
 For OLS and statsmodels/pyqreg quantile regression, `prune=True` already performs the

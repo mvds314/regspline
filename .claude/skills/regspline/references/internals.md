@@ -69,8 +69,9 @@ alone.
 There is no intercept attribute. `has_const` is derived:
 
 ```python
-has_const = (n_knots == n_coeffs)     # N coeffs for N knots -> coeffs[0] is the constant
-                                      # N-1 coeffs for N knots -> no constant
+# N coeffs for N knots -> coeffs[0] is the constant
+# N-1 coeffs for N knots -> no constant
+has_const = n_knots == n_coeffs
 ```
 
 `const`, `_ci` (the non-constant coefficients), the `from_data` branches, and the
@@ -159,12 +160,12 @@ The tricky part is index alignment, because the `to_prune` mask is indexed by
 constant at the front and by the unused last knot at the back.
 
 ```python
-to_prune              # length n_coeffs
+to_prune  # length n_coeffs
 self.coeffs = coeffs[~to_prune]
 
 to_prune = np.append(
-    to_prune[1:] if len(knots) == len(coeffs) else to_prune,   # drop const slot
-    False,                                                     # last knot has no coeff
+    to_prune[1:] if len(knots) == len(coeffs) else to_prune,  # drop const slot
+    False,  # last knot has no coeff
 )
 self.knots = knots[~to_prune]
 ```
