@@ -64,6 +64,19 @@ class BasisFuncInterface(ABC):
         return y
 
 
+def _sklearn_coeffs(result, fit_intercept):
+    """Spline coefficients from a fitted sklearn estimator.
+
+    sklearn always exposes ``intercept_``, but it is a hard 0.0 when the model was
+    told not to fit one. Prepending it then produces a spline with a meaningless
+    zero constant and one more coefficient than knots-1, so only prepend it when an
+    intercept was actually estimated.
+    """
+    if fit_intercept:
+        return np.append(result.intercept_, result.coef_)
+    return np.asanyarray(result.coef_)
+
+
 class KnotsInterface(ABC):
     """
     Abstraction for a class containing knots
@@ -78,6 +91,14 @@ class KnotsInterface(ABC):
             return False
         return np.array_equal(self.knots, other.knots)
 
+    def __hash__(self):
+        return hash(
+            (
+                self.__class__.__name__,
+                None if self.knots is None else tuple(self.knots),
+            )
+        )
+
     @property
     def knots(self):
         return self._knots
@@ -87,9 +108,13 @@ class KnotsInterface(ABC):
         if value is not None:
             value = np.asanyarray(value)
             assert len(value) >= 2, "Must specify at least 2 knots"
-            assert np.all(
-                np.less_equal(value[:-1], value[1:]) | np.isclose(value[:-1], value[1:])
-            ), "Knots are assumed to be sorted and unique"
+            assert np.all(np.less_equal(value[:-1], value[1:])), "Knots are assumed to be sorted"
+            # Coincident knots add a basis function that duplicates its neighbour,
+            # which makes the design matrix singular instead of failing outright.
+            assert not np.any(np.isclose(value[:-1], value[1:])), (
+                "Knots are assumed to be unique, found coincident knots at "
+                f"{np.flatnonzero(np.isclose(value[:-1], value[1:]))}"
+            )
 
         self._knots = value
 
@@ -132,8 +157,8 @@ class RegressionSplineBase(KnotsInterface, ABC):
         return hash(
             (
                 self.__class__.__name__,
-                tuple(self.knots),
-                tuple(self.coeffs),
+                None if self.knots is None else tuple(self.knots),
+                None if self.coeffs is None else tuple(self.coeffs),
             )
         )
 
@@ -439,7 +464,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 kwargs.setdefault("alpha", 0)
                 model = QuantileRegressor(**kwargs)
                 result = model.fit(spline.eval_basis(x, include_constant=False), y)
-                spline.coeffs = np.append(result.intercept_, result.coef_)
+                spline.coeffs = _sklearn_coeffs(result, kwargs["fit_intercept"])
                 assert np.allclose(spline(x), result.predict(spline.eval_basis(x))), (
                     "Something is wrong, this should give the same result"
                 )
@@ -471,7 +496,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             kwargs.setdefault("fit_intercept", add_constant)
             model = LinearSVR(**kwargs)
             result = model.fit(spline.eval_basis(x, include_constant=False), y)
-            spline.coeffs = np.append(result.intercept_, result.coef_)
+            spline.coeffs = _sklearn_coeffs(result, kwargs["fit_intercept"])
             assert np.allclose(spline(x), result.predict(spline.eval_basis(x))), (
                 "Something is wrong, this should give the same result"
             )

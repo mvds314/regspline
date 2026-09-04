@@ -145,7 +145,7 @@ class LinearSpline(RegressionSplineBase):
                     to_prune[1:] if len(knots) == len(coeffs) else to_prune, False
                 )
                 self.knots = knots[~to_prune]
-            except:
+            except Exception:
                 # Cleanup, don't leave the spline in an invalid state
                 self.knots = None
                 self.coeffs = None

@@ -309,6 +309,25 @@ def test_from_data_q_is_forwarded_to_pruning_refit():
         )
 
 
+def test_from_data_sklearn_without_intercept_has_no_constant():
+    """sklearn's intercept_ is a hard 0.0 when unfitted; it must not become a constant."""
+    if not _has_sklearn:
+        warnings.warn("Optional dependency scikit learn not found, cannot test intercept")
+        return
+    _, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 5)
+    for method, kwargs in (
+        ("QuantileRegression", dict(backend="sklearn")),
+        ("SVR", {}),
+    ):
+        fs = LinearSpline.from_data(x, y, knots=knots, method=method, add_constant=False, **kwargs)
+        assert not fs.has_const, f"{method} invented a constant"
+        assert fs.n_coeffs == len(knots) - 1
+        fs = LinearSpline.from_data(x, y, knots=knots, method=method, add_constant=True, **kwargs)
+        assert fs.has_const, f"{method} dropped the constant"
+        assert fs.n_coeffs == len(knots)
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(
