@@ -190,6 +190,144 @@ def test_from_data():
         warnings.warn("Optional dependency pyqreg learn not found, cannot quantile regression")
 
 
+def _wls_fixture():
+    np.random.seed(101)
+    knots = [0.1, 0.5, 0.9]
+    coeffs = [2, 1, 1]
+    spline = LinearSpline(knots, coeffs)
+    x = np.repeat(np.linspace(knots[0], knots[-1], num=100), 50)
+    y = spline(x) + 0.01 * np.random.randn(*x.shape)
+    return spline, x, y
+
+
+def test_from_data_wls():
+    spline, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 7)
+    ols = LinearSpline.from_data(x, y, knots=knots, method="OLS")
+    # Unit weights must reproduce the OLS fit
+    wls = LinearSpline.from_data(x, y, knots=knots, method="WLS", weights=np.ones_like(y))
+    assert np.allclose(wls.coeffs, ols.coeffs, atol=1e-8)
+    # Omitting weights entirely must also work and match OLS
+    wls_noweights = LinearSpline.from_data(x, y, knots=knots, method="WLS")
+    assert np.allclose(wls_noweights.coeffs, ols.coeffs, atol=1e-8)
+    # Near-zero weights must suppress the influence of corrupted observations
+    x_dup = np.concatenate([x, x])
+    y_dup = np.concatenate([y, y + 10])
+    weights = np.concatenate([np.ones_like(y), np.full_like(y, 1e-12)])
+    wls = LinearSpline.from_data(x_dup, y_dup, knots=knots, method="WLS", weights=weights)
+    assert np.allclose(wls.coeffs, ols.coeffs, atol=1e-2)
+    # Weighting must actually change the fit relative to unweighted OLS
+    unweighted = LinearSpline.from_data(x_dup, y_dup, knots=knots, method="OLS")
+    assert not np.allclose(unweighted.coeffs, wls.coeffs, atol=1e-2)
+    # Pruning must stay weighted on the refit and recover the true knots
+    pruned = LinearSpline.from_data(
+        x_dup, y_dup, knots=knots, method="WLS", weights=weights, prune=True
+    )
+    assert np.allclose(pruned.knots, spline.knots)
+    assert np.allclose(pruned.coeffs, spline.coeffs, atol=1e-2)
+
+
+@pytest.mark.parametrize("method", ["OLS", "WLS", "QuantileRegression"])
+def test_from_data_missing_is_forwarded_to_pruning_refit(method):
+    """missing='drop' must survive the recursive refit triggered by prune=True."""
+    _, x, y = _wls_fixture()
+    y = y.copy()
+    y[::40] = np.nan
+    knots = np.linspace(0.1, 0.9, 7)
+    fs = LinearSpline.from_data(x, y, knots=knots, method=method, missing="drop", prune=True)
+    assert not np.any(np.isnan(fs.coeffs))
+
+
+def test_prune_knots_never_prunes_first_knot():
+    """The first knot is the left domain boundary and must survive pruning."""
+    knots = [0.0, 1.0, 2.0, 3.0]
+    # First coefficient after the constant is the overall slope; ask to prune it
+    ls = LinearSpline(knots, [0.5, 0.0, 2.0, 0.0])
+    ls.prune_knots(method="coeffs", coeffs_to_prune=[False, True, False, True])
+    assert ls.knots[0] == 0.0
+    assert ls.knots[-1] == 3.0
+    assert len(ls.knots) == len(ls.coeffs)
+    # Magnitude pruning must protect the boundary too
+    ls = LinearSpline(knots, [0.0, 2.0, 0.0])
+    ls.prune_knots(tol=1e-6)
+    assert ls.knots[0] == 0.0
+    assert ls.knots[-1] == 3.0
+
+
+def test_from_data_prune_keeps_domain_when_first_basis_insignificant():
+    """Pruning must not shrink the domain and crash the recursive refit."""
+    rng = np.random.default_rng(0)
+    truth = LinearSpline([0, 1, 3, 4], [0.0, 2.0, -1.5, 0.5])
+    x = np.linspace(0, 4, 2000)
+    y = truth(x) + (0.05 + 0.6 * x) * rng.standard_normal(x.shape[0])
+    knots = np.linspace(0, 4, 40)
+    fs = LinearSpline.from_data(x, y, knots=knots, method="OLS", prune=True)
+    assert fs.knots[0] == knots[0]
+    assert fs.knots[-1] == knots[-1]
+    assert not np.any(np.isnan(fs(x)))
+
+
+def test_from_data_extrapolation_method_is_forwarded_to_pruning_refit():
+    """extrapolation_method must survive the recursive refit triggered by prune=True."""
+    _, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 7)
+    fs = LinearSpline.from_data(
+        x, y, knots=knots, method="OLS", prune=True, extrapolation_method="basis"
+    )
+    assert fs.extrapolation_method == "basis"
+    assert not np.isnan(fs(1.5))
+
+
+def test_from_data_q_is_forwarded_to_pruning_refit():
+    """q and backend must survive the recursive refit triggered by prune=True.
+
+    Without forwarding, a p10 request silently came back as a median fit.
+    """
+    if not _has_pyqreg:
+        warnings.warn("Optional dependency pyqreg not found, cannot test q forwarding")
+        return
+    rng = np.random.default_rng(7)
+    n = 8000
+    x = np.sort(rng.uniform(0, 10, n))
+    y = 2.0 + 1.0 * x + rng.normal(0, 3.0, n)
+    knots = np.linspace(0, 10, 12)
+    expected_p10 = 2.0 + 5.0 - 3.0 * 1.2816
+    expected_median = 2.0 + 5.0
+    for prune in (False, True):
+        fs = LinearSpline.from_data(
+            x,
+            y,
+            knots=knots,
+            method="QuantileRegression",
+            backend="pyqreg",
+            q=0.10,
+            prune=prune,
+        )
+        value = float(fs(5.0))
+        assert abs(value - expected_p10) < abs(value - expected_median), (
+            f"prune={prune} fitted the median instead of the 10th percentile"
+        )
+
+
+def test_from_data_sklearn_without_intercept_has_no_constant():
+    """sklearn's intercept_ is a hard 0.0 when unfitted; it must not become a constant."""
+    if not _has_sklearn:
+        warnings.warn("Optional dependency scikit learn not found, cannot test intercept")
+        return
+    _, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 5)
+    for method, kwargs in (
+        ("QuantileRegression", dict(backend="sklearn")),
+        ("SVR", {}),
+    ):
+        fs = LinearSpline.from_data(x, y, knots=knots, method=method, add_constant=False, **kwargs)
+        assert not fs.has_const, f"{method} invented a constant"
+        assert fs.n_coeffs == len(knots) - 1
+        fs = LinearSpline.from_data(x, y, knots=knots, method=method, add_constant=True, **kwargs)
+        assert fs.has_const, f"{method} dropped the constant"
+        assert fs.n_coeffs == len(knots)
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(

@@ -167,6 +167,21 @@ def test_from_data():
     assert np.allclose(fs.coeffs, spline.coeffs, atol=1e-2)
 
 
+def test_prune_knots_with_insignificant_constant():
+    """Dropping an insignificant constant must not desynchronise the prune masks."""
+    knots = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    coeffs = [0.0, 1.0, 0.5, 2.0, 0.3, 0.2]
+    spline = NaturalCubicSpline(knots, coeffs)
+    assert spline.has_const
+    spline.prune_knots(method="coeffs", coeffs_to_prune=[True, False, False, False, False, True])
+    assert not spline.has_const
+    assert spline.n_knots == 5
+    assert spline.n_coeffs == 4
+    assert spline.knots[0] == knots[0]
+    assert spline.knots[-1] == knots[-1]
+    assert not np.any(np.isnan(spline(np.linspace(0, 5, 50))))
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(

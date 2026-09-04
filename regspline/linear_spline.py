@@ -134,6 +134,10 @@ class LinearSpline(RegressionSplineBase):
         if len(to_prune) > 0:
             try:
                 # Note first can correspond to const, last knot has no coeff
+                # Never prune the first knot: it is the left boundary of the domain,
+                # and its coefficient is the overall slope rather than a kink.
+                to_prune = np.array(to_prune, dtype=bool, copy=True)
+                to_prune[1 if len(knots) == len(coeffs) else 0] = False
                 self.coeffs = None
                 self.knots = None
                 self.coeffs = coeffs[~to_prune]
@@ -141,7 +145,7 @@ class LinearSpline(RegressionSplineBase):
                     to_prune[1:] if len(knots) == len(coeffs) else to_prune, False
                 )
                 self.knots = knots[~to_prune]
-            except:
+            except Exception:
                 # Cleanup, don't leave the spline in an invalid state
                 self.knots = None
                 self.coeffs = None

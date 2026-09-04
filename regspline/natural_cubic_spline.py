@@ -25,6 +25,14 @@ class _NaturalCubicSplineBasisFuncInterface(KnotsInterface, BasisFuncInterface, 
         if np.isfinite(xmax):
             assert xmax >= self.knots[-1]
 
+    def __eq__(self, other):
+        # Two basis functions over the same knots still differ by which knot they
+        # are anchored to, so the index has to take part in equality and hashing.
+        return KnotsInterface.__eq__(self, other) and self._i == other._i
+
+    def __hash__(self):
+        return hash((KnotsInterface.__hash__(self), self._i))
+
     @property
     def ref(self):
         return self.knots[self._i - 1]
@@ -196,12 +204,12 @@ class NaturalCubicSpline(RegressionSplineBase):
             Other keyword arguments passed to method.
         """
         # Initialize
-        coeffs = np.copy(self.coeffs)
-        knots = np.copy(self.knots)
+        orig_coeffs = np.copy(self.coeffs)
+        orig_knots = np.copy(self.knots)
         # Determine to prune
         if method == "isclose":
             kwargs.setdefault("atol", tol)
-            to_prune = np.isclose(coeffs, 0, **kwargs)
+            to_prune = np.isclose(orig_coeffs, 0, **kwargs)
         elif method == "coeffs":
             assert len(coeffs_to_prune) == self.n_coeffs
             to_prune = np.asanyarray(coeffs_to_prune)
@@ -210,16 +218,19 @@ class NaturalCubicSpline(RegressionSplineBase):
         # Prune
         if len(to_prune) > 0:
             try:
-                # Note first coeff can correspond to const, last knot has no coeff
-                # Never prune the first knot, and never prune the last knot
-                if self.has_const and to_prune[0]:
-                    self.coeffs = self.coeffs[1:]
+                coeffs = orig_coeffs
+                # Note first coeff can correspond to const, last knot has no coeff.
+                # Drop an insignificant constant from the coeffs and from the mask
+                # together, so that the two stay aligned in the slicing below.
+                drop_const = bool(self.has_const and to_prune[0])
+                if drop_const:
+                    coeffs = coeffs[1:]
                     to_prune = to_prune[1:]
-                # Never prune the first knot
-                # And never prune the last two knots
+                # Never prune the first knot, and never prune the last two knots
                 if self.n_knots <= 3:
+                    self.coeffs = coeffs
                     return
-                if self.has_const:
+                if self.has_const and not drop_const:
                     knots_to_prune = np.append(np.append(False, to_prune[3:]), [False, False])
                     coeffs_to_prune = np.append([False, False, False], to_prune[3:])
                 else:
@@ -228,11 +239,11 @@ class NaturalCubicSpline(RegressionSplineBase):
                 self.coeffs = None
                 self.knots = None
                 self.coeffs = coeffs[~coeffs_to_prune]
-                self.knots = knots[~knots_to_prune]
-            except:
+                self.knots = orig_knots[~knots_to_prune]
+            except Exception:
                 # Cleanup, don't leave the spline in an invalid state
                 self.knots = None
                 self.coeffs = None
-                self.knots = knots
-                self.coeffs = coeffs
+                self.knots = orig_knots
+                self.coeffs = orig_coeffs
                 raise
