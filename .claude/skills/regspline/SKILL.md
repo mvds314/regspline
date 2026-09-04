@@ -1,6 +1,6 @@
 ---
 name: regspline
-description: Complete guide to the regspline library — 1-D regression splines (linear/hinge-basis and natural cubic) implemented as plain callable objects and fitted from data via a single `from_data` classmethod supporting OLS, LASSO, quantile regression, and SVR across statsmodels/sklearn/pyqreg backends. Use this skill whenever working in the regspline repo, and whenever the user mentions regression splines, spline knots, knot pruning, hinge or MARS basis functions, natural cubic splines, spline-based quantile regression, or wants to fit a piecewise-linear or smooth curve to noisy 1-D data. Also use it before adding a new estimation method (WLS, GLS, ridge), a new spline type, or a new extrapolation mode, because those changes must respect non-obvious invariants that are easy to break and are documented here.
+description: Complete guide to the regspline library — 1-D regression splines (linear/hinge-basis and natural cubic) implemented as plain callable objects and fitted from data via a single `from_data` classmethod supporting OLS, WLS, LASSO, quantile regression, and SVR across statsmodels/sklearn/pyqreg backends. Use this skill whenever working in the regspline repo, and whenever the user mentions regression splines, spline knots, knot pruning, hinge or MARS basis functions, natural cubic splines, spline-based quantile regression, or wants to fit a piecewise-linear or smooth curve to noisy 1-D data. Also use it before adding a new estimation method (GLS, ridge), a new spline type, or a new extrapolation mode, because those changes must respect non-obvious invariants that are easy to break and are documented here.
 ---
 
 # regspline
@@ -111,6 +111,7 @@ Key arguments:
 | `method` | Backends | Needs | Notable kwargs |
 |---|---|---|---|
 | `"OLS"` | statsmodels | — | — |
+| `"WLS"` | statsmodels | — | `weights` (default `1.0`) |
 | `"LASSO"` | statsmodels (`sqrt_lasso`) | `cvxopt` | `alpha` |
 | `"QuantileRegression"` | statsmodels (default), `sklearn`, `pyqreg` | sklearn/pyqreg optional | `q` (default 0.5), `max_iter` |
 | `"SVR"` | sklearn (`LinearSVR`) | `scikit-learn` | `C`, `epsilon` |
@@ -122,22 +123,48 @@ is markedly faster on large samples and also gives t-values, and `sklearn` uses 
 HiGHS LP solver but gives no inference. `examples/example_quantile_regression.py`
 times all three side by side.
 
-### Pruning
+### Finding a few knots from many candidates
 
-Two mechanisms, and the one you get depends on whether the backend produces t-values:
+When the task is "find the kinks", "start with many possible knots but end with a
+handful", or "print the knot locations", reach for `prune=True`. That is the sparse
+workflow this basis was built for: over-specify candidate knots, let the regression
+identify unneeded slope changes, then read the retained locations from `spline.knots`.
 
-- **Significance pruning** (OLS, statsmodels/pyqreg quantile regression): coefficients
-  with `|t| < 1.96` are dropped and the spline is **refit from scratch** on the
-  surviving knots. This matters — the coefficients change after pruning, so a pruned
-  fit is a genuine second regression, not a truncation of the first.
-- **Magnitude pruning** (LASSO, SVR, NuSVR, sklearn QR): `prune_knots()` drops
-  coefficients that are within `tol` of zero. No refit.
+```python
+from regspline import LinearSpline
+import numpy as np
 
-You can also prune by hand: `s.prune_knots(method="isclose", tol=1e-6)` or
+# Quantile spacing gives candidates across the data density when x is bunched.
+candidate_knots = np.unique(np.quantile(x, np.linspace(0, 1, 40)))
+
+spline = LinearSpline.from_data(
+    x,
+    y,
+    knots=candidate_knots,
+    method="OLS",
+    prune=True,
+)
+spline.extrapolation_method = "basis"  # choose this deliberately before evaluating at 45
+
+print(spline.knots)      # retained knots; interior ones are the kink locations
+print(spline(45))        # deliberate extrapolation beyond the data range
+```
+
+For OLS and statsmodels/pyqreg quantile regression, `prune=True` already performs the
+significance-based elimination agents are tempted to hand-roll: fit all candidates,
+drop coefficients with `|t| < 1.96`, then **refit from scratch** on the surviving
+knots. The refit matters because coefficients change after pruning, and the built-in
+path also handles the constant-vs-knot index alignment that is easy to get wrong.
+
+For LASSO, SVR, NuSVR, and sklearn quantile regression there are no t-values, so
+`prune=True` calls `prune_knots()` and drops coefficients within `tol` of zero. That
+makes LASSO + pruning the idiomatic sparse workflow when you want regularization:
+start with many knots, let the penalty zero most of them, then prune to get a compact
+spline.
+
+Manual pruning is still available for custom criteria:
+`s.prune_knots(method="isclose", tol=1e-6)` or
 `s.prune_knots(method="coeffs", coeffs_to_prune=[False, True, ...])`.
-
-Pruning after LASSO is the idiomatic sparse workflow: start with many knots, let the
-penalty zero most of them, then prune to get a compact spline.
 
 ## The design matrix
 

@@ -172,11 +172,12 @@ Follow the shape of the existing `"OLS"` branch:
 elif method == "WLS":
     assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
     weights = kwargs.pop("weights", 1.0)
+    missing = kwargs.pop("missing", "none")
     smkwargs = dict(
         exog=spline.eval_basis(x, include_constant=add_constant),
         weights=weights,
         hasconst=True,
-        missing=kwargs.pop("missing", "none"),
+        missing=missing,
     )
     model = sm.WLS(y, **smkwargs)
     result = model.fit(**kwargs)
@@ -193,6 +194,7 @@ elif method == "WLS":
             prune=False,
             return_estim_result=return_estim_result,
             weights=weights,          # <- must be re-passed; it was popped above
+            missing=missing,          # <- same rule for estimator kwargs
             **kwargs,
         )
 ```
@@ -206,14 +208,24 @@ Points that generalise to any new method:
 3. **Recursive refit is the pruning pattern for t-value backends.** Prune, then
    re-enter `cls.from_data` with the surviving knots and `prune=False` to stop the
    recursion. The second fit is what makes the pruned coefficients correct.
-4. **Anything you `pop` from `kwargs` must be passed explicitly on the recursive
+4. **When you pop a kwarg only to pass it explicitly, use the downstream default.**
+   `statsmodels.WLS` defaults `weights` to `1.0`, meaning unweighted. A more
+   Python-looking sentinel such as `None` is not equivalent: it is forwarded to
+   statsmodels, which passes it on to `np.sqrt` and fails before fitting.
+5. **Anything you `pop` from `kwargs` must be passed explicitly on the recursive
    call**, or it silently vanishes on the refit. With `weights` that would mean the
-   pruned fit quietly becomes OLS — a bug that produces plausible-looking numbers.
-5. **`weights` is per-observation and pruning removes columns, not rows**, so the
+   pruned fit quietly becomes OLS. With `missing`, it means `missing="drop"` is used
+   on the first fit and then lost on the pruned refit. The shipped OLS and
+   statsmodels `QuantileRegression` branches currently have this latent bug: they
+   pop `missing` into `smkwargs` and recurse with only `**kwargs`.
+6. **`weights` is per-observation and pruning removes columns, not rows**, so the
    weight vector stays aligned across the refit. No subsetting needed.
-6. If the backend has no t-values, use the magnitude path instead:
+7. A default-path test is worth adding for every new estimation method. A test that
+   always supplies `weights` will pass even if the no-weights path crashes; one call
+   with no optional method kwargs is the cheapest guard.
+8. If the backend has no t-values, use the magnitude path instead:
    `if prune: spline.prune_knots()`.
-7. For sklearn-style backends, follow the existing convention of asserting
+9. For sklearn-style backends, follow the existing convention of asserting
    `np.allclose(spline(x), result.predict(spline.eval_basis(x)))`. It's a cheap guard
    that the coefficient packing (intercept first) was done right.
 

@@ -190,6 +190,54 @@ def test_from_data():
         warnings.warn("Optional dependency pyqreg learn not found, cannot quantile regression")
 
 
+def _wls_fixture():
+    np.random.seed(101)
+    knots = [0.1, 0.5, 0.9]
+    coeffs = [2, 1, 1]
+    spline = LinearSpline(knots, coeffs)
+    x = np.repeat(np.linspace(knots[0], knots[-1], num=100), 50)
+    y = spline(x) + 0.01 * np.random.randn(*x.shape)
+    return spline, x, y
+
+
+def test_from_data_wls():
+    spline, x, y = _wls_fixture()
+    knots = np.linspace(0.1, 0.9, 7)
+    ols = LinearSpline.from_data(x, y, knots=knots, method="OLS")
+    # Unit weights must reproduce the OLS fit
+    wls = LinearSpline.from_data(x, y, knots=knots, method="WLS", weights=np.ones_like(y))
+    assert np.allclose(wls.coeffs, ols.coeffs, atol=1e-8)
+    # Omitting weights entirely must also work and match OLS
+    wls_noweights = LinearSpline.from_data(x, y, knots=knots, method="WLS")
+    assert np.allclose(wls_noweights.coeffs, ols.coeffs, atol=1e-8)
+    # Near-zero weights must suppress the influence of corrupted observations
+    x_dup = np.concatenate([x, x])
+    y_dup = np.concatenate([y, y + 10])
+    weights = np.concatenate([np.ones_like(y), np.full_like(y, 1e-12)])
+    wls = LinearSpline.from_data(x_dup, y_dup, knots=knots, method="WLS", weights=weights)
+    assert np.allclose(wls.coeffs, ols.coeffs, atol=1e-2)
+    # Weighting must actually change the fit relative to unweighted OLS
+    unweighted = LinearSpline.from_data(x_dup, y_dup, knots=knots, method="OLS")
+    assert not np.allclose(unweighted.coeffs, wls.coeffs, atol=1e-2)
+    # Pruning must stay weighted on the refit and recover the true knots
+    pruned = LinearSpline.from_data(
+        x_dup, y_dup, knots=knots, method="WLS", weights=weights, prune=True
+    )
+    assert np.allclose(pruned.knots, spline.knots)
+    assert np.allclose(pruned.coeffs, spline.coeffs, atol=1e-2)
+
+
+@pytest.mark.parametrize("method", ["OLS", "WLS", "QuantileRegression"])
+def test_from_data_missing_is_forwarded_to_pruning_refit(method):
+    """missing='drop' must survive the recursive refit triggered by prune=True."""
+    _, x, y = _wls_fixture()
+    y = y.copy()
+    y[::40] = np.nan
+    knots = np.linspace(0.1, 0.9, 7)
+    fs = LinearSpline.from_data(x, y, knots=knots, method=method, missing="drop", prune=True)
+    assert not np.any(np.isnan(fs.coeffs))
+
+
 if __name__ == "__main__":
     if True:
         pytest.main(

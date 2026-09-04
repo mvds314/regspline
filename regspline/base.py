@@ -315,6 +315,11 @@ class RegressionSplineBase(KnotsInterface, ABC):
         Dictionary with additional kwargs passed to estimation (statsmodels fit methods).
         q : float
             quantile used for quantile regression, defaults to the median (0.5)
+        weights : float or numpy array
+            Per-observation weights used for weighted least squares (method="WLS").
+            Defaults to 1.0, which reproduces the OLS fit.
+        missing : string
+            Missing data policy passed to statsmodels, "none" (default), "drop" or "raise".
         C : float
             Regularization parameter for SVR. The strength of the regularization is inversely proportional to C. Must be strictly positive.
         epsilon : float
@@ -337,13 +342,16 @@ class RegressionSplineBase(KnotsInterface, ABC):
         else:
             knots = np.asanyarray(knots)
         spline = cls(knots, None, extrapolation_method=kwargs.pop("extrapolation_method", "nan"))
+        # Popped once here so that every branch, and every recursive pruning refit,
+        # observes the same missing-data policy.
+        missing = kwargs.pop("missing", "none")
         # Estimate
         if method == "OLS":
             assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
             smkwargs = dict(
                 exog=spline.eval_basis(x, include_constant=add_constant),
                 hasconst=True,
-                missing=kwargs.pop("missing", "none"),
+                missing=missing,
             )
             model = sm.OLS(y, **smkwargs)
             result = model.fit(**kwargs)
@@ -360,6 +368,37 @@ class RegressionSplineBase(KnotsInterface, ABC):
                     add_constant=add_constant,
                     prune=False,
                     return_estim_result=return_estim_result,
+                    missing=missing,
+                    **kwargs,
+                )
+        elif method == "WLS":
+            assert backend is None or backend == "statsmodels", "sklearn backend not implemented"
+            # Defaults to sm.WLS's own default so that method="WLS" without weights
+            # behaves like OLS instead of failing inside numpy's sqrt.
+            weights = kwargs.pop("weights", 1.0)
+            smkwargs = dict(
+                exog=spline.eval_basis(x, include_constant=add_constant),
+                weights=weights,
+                hasconst=True,
+                missing=missing,
+            )
+            model = sm.WLS(y, **smkwargs)
+            result = model.fit(**kwargs)
+            spline.coeffs = result.params
+            insignificant = np.abs(result.tvalues) < 1.96
+            if prune and np.any(insignificant):
+                add_constant = add_constant and not insignificant[0]
+                spline.prune_knots(method="coeffs", coeffs_to_prune=insignificant)
+                return cls.from_data(
+                    x,
+                    y,
+                    knots=spline.knots,
+                    method=method,
+                    add_constant=add_constant,
+                    prune=False,
+                    return_estim_result=return_estim_result,
+                    weights=weights,
+                    missing=missing,
                     **kwargs,
                 )
         elif method == "LASSO":
@@ -368,7 +407,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
             smkwargs = dict(
                 exog=spline.eval_basis(x, include_constant=add_constant),
                 hasconst=True,
-                missing=kwargs.pop("missing", "none"),
+                missing=missing,
             )
             model = sm.OLS(y, **smkwargs)
             result = model.fit_regularized(method="sqrt_lasso", **kwargs)
@@ -380,7 +419,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                 smkwargs = dict(
                     exog=spline.eval_basis(x, include_constant=add_constant),
                     hasconst=True,
-                    missing=kwargs.pop("missing", "none"),
+                    missing=missing,
                 )
                 model = sm.QuantReg(y, **smkwargs)
                 kwargs.setdefault("q", 0.5)
@@ -398,6 +437,7 @@ class RegressionSplineBase(KnotsInterface, ABC):
                         add_constant=add_constant,
                         prune=False,
                         return_estim_result=return_estim_result,
+                        missing=missing,
                         **kwargs,
                     )
             elif backend == "sklearn":

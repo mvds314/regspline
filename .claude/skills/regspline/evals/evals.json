@@ -7,21 +7,56 @@
       "name": "fit-sparse-kinked-signal",
       "prompt": "I've got about 5000 (x, y) observations where y is roughly piecewise linear in x with two or three kinks in it, plus a fair bit of noise. x runs from 0 to 40 but the values are bunched up near the low end. I want a fitted curve that actually tells me WHERE the kinks are rather than just a smooth blob, and I'd like it to end up with only a handful of knots, not fifty. Can you write me a script using regspline that does this and prints out the knot locations it settled on? Also I need to evaluate the fitted thing at x=45 later so tell me what happens there.",
       "expected_output": "Script using LinearSpline (not NaturalCubicSpline) with quantile-spaced knots given the skew, an over-specified initial knot set, prune=True (or LASSO+prune), printing spline.knots. Explains that x=45 is outside the knot range so the default 'nan' extrapolation returns NaN, and names the alternatives.",
-      "files": []
+      "files": [],
+      "assertions": [
+        "Chooses LinearSpline rather than NaturalCubicSpline, matching the user's need to locate kinks",
+        "Uses quantile-spaced (or otherwise non-uniform) knots to handle the skewed x distribution",
+        "Starts from an over-specified knot set and reduces it via pruning",
+        "Final knot count is in single digits, honouring 'a handful, not fifty'",
+        "Prints the surviving knot locations",
+        "Recovered knots land near the true kink locations",
+        "Script executes successfully and run_output.txt shows real output",
+        "States that x=45 returns NaN under the default extrapolation_method='nan'",
+        "Names at least one alternative extrapolation mode for handling x=45"
+      ]
     },
     {
       "id": 1,
       "name": "add-wls-estimation-method",
       "prompt": "Add a weighted least squares option to regspline so I can pass per-observation weights when fitting. I want it to work the same way as the OLS path does, including the knot pruning. Add a test for it too.",
       "expected_output": "A 'WLS' branch added to RegressionSplineBase.from_data in base.py using sm.WLS, design matrix built via spline.eval_basis(x, include_constant=add_constant), coeffs assigned to spline.coeffs, t-value based pruning with a recursive from_data call that re-passes weights explicitly (since it was popped from kwargs). A test added under tests/. ruff format clean.",
-      "files": []
+      "files": [],
+      "assertions": [
+        "Adds a WLS branch to RegressionSplineBase.from_data in base.py",
+        "Uses statsmodels sm.WLS with a per-observation weights argument",
+        "Builds the design matrix via spline.eval_basis(x, include_constant=add_constant)",
+        "Assigns the fitted parameters to spline.coeffs rather than returning a bare vector",
+        "Implements significance pruning via a recursive from_data call with prune=False",
+        "Re-passes weights explicitly on the recursive pruning call so the refit stays weighted",
+        "Adds a test that exercises the WLS path",
+        "Full test suite passes",
+        "Weighting demonstrably changes the fit versus unweighted OLS",
+        "Does not modify unrelated code or invent a plugin/registry abstraction",
+        "method='WLS' works when called without explicit weights"
+      ]
     },
     {
       "id": 2,
-      "name": "diagnose-constant-and-nan",
-      "prompt": "something weird is going on with regspline. i fit a LinearSpline with 12 knots and got back 12 coefficients, but i thought there were supposed to be 11 basis functions? and then when i tried to reuse the coefficients by constructing LinearSpline(knots, coeffs[1:]) it gave me a totally different curve. also half my predictions are nan now. what am i doing wrong",
-      "expected_output": "Explains that coeffs[0] is the constant when len(coeffs)==len(knots), that has_const is derived from the length rather than being a flag, so dropping coeffs[0] produces a constant-free spline with a shifted meaning rather than the same curve. Explains the NaNs come from the default extrapolation_method='nan' outside [k_1, k_N] and lists the alternatives.",
-      "files": []
+      "name": "quantile-backend-significance-pruning",
+      "prompt": "i'm fitting a p10 downside curve for about 180k trades. x is utilisation, heavily bunched below 20 but with a long tail out to 100, and y has a couple of regime changes rather than one smooth bend. i need a compact list of knots for the risk note, and when i say prune i mean statistically insignificant knots, not just coefficients that happen to be numerically tiny. pyqreg is installed. my first instinct was sklearn's QuantileRegressor because highs sounds fast, but i'm not sure. can you give me a regspline script and explain the backend choice? please also include a quick sanity check showing whether pruning is just slicing the first fit's coefficients or doing a real refit.",
+      "expected_output": "A script using LinearSpline.from_data with method='QuantileRegression', q=0.10, quantile-spaced initial knots for the skewed x distribution, backend='pyqreg' because pyqreg is installed and the user needs both speed and t-values, and prune=True for significance pruning. The answer should explain that statsmodels would also provide t-values but is less attractive for the stated large sample, while sklearn QuantileRegressor has no t-values so regspline's pruning path there is magnitude-based rather than significance-based. The sanity check should fit once with prune=False and return_estim_result=True, inspect abs(result.tvalues) < 1.96, then fit with prune=True and compare the pruned/refit coefficients against the coefficients obtained by applying the same mask to the first fit; it should state that differences are expected because the t-value pruning path refits on the surviving knots.",
+      "files": [],
+      "assertions": [
+        "Chooses LinearSpline rather than NaturalCubicSpline for regime-change/knot interpretability",
+        "Uses quantile-spaced initial knots to handle x being heavily bunched below 20",
+        "Uses method='QuantileRegression' with q=0.10 for the requested p10 curve",
+        "Selects backend='pyqreg' because pyqreg is installed and the sample is large",
+        "Explains that sklearn QuantileRegressor is the wrong backend for significance pruning because it provides no t-values",
+        "Explains that sklearn-backed pruning in regspline is magnitude-based rather than t-value/significance-based",
+        "Uses prune=True on a t-value-producing backend to obtain significance pruning",
+        "Inspects result.tvalues from an unpruned fit and identifies insignificant coefficients with an |t| < 1.96 rule",
+        "Sanity check demonstrates that t-value pruning refits and therefore changes coefficients rather than merely slicing the first fit"
+      ]
     }
   ]
 }

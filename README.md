@@ -27,7 +27,7 @@ plt.plot(x, y)
 plt.plot(x, s(x))
 ```
 
-Several regression types are supported to extract the splines from data, including OLS, LASSO, and quantile regression. See the example files.
+Several regression types are supported to extract the splines from data, including OLS, WLS, LASSO, and quantile regression. For weighted least squares pass per-observation weights, e.g. `method="WLS", weights=w`. See the example files.
 
 ## Installation
 
